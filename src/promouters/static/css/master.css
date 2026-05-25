@@ -1,0 +1,64 @@
+body.master-theme {
+  background: #f8fafc;
+  color: #0f172a;
+}
+body.master-theme .layout { grid-template-columns: 220px minmax(0, 1fr); }
+body.master-theme .sidebar {
+  background: linear-gradient(180deg, #ffffff, #f1f5f9);
+  border-right: 1px solid #e2e8f0;
+}
+body.master-theme .brand-title-main { color: #0f172a; }
+body.master-theme .brand-title-sub { color: #64748b; }
+body.master-theme .nav-link { color: #0f172a; }
+body.master-theme .nav-link:hover { background: rgba(16,185,129,0.08); }
+body.master-theme .nav-link.active {
+  background: rgba(16,185,129,0.14);
+  color: #059669;
+  border-color: rgba(16,185,129,0.35);
+}
+body.master-theme .nav-group-title { color: #64748b; }
+body.master-theme .content {
+  background: #f8fafc;
+  color: #0f172a;
+}
+body.master-theme .card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+}
+body.master-theme .card:hover { box-shadow: 0 4px 14px rgba(16,185,129,0.18); }
+body.master-theme .card-desc { color: #64748b; }
+body.master-theme .page-title { color: #0f172a; }
+body.master-theme .page-subtitle { color: #64748b; }
+body.master-theme .kpi {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #0f172a;
+}
+body.master-theme .kpi-label { color: #64748b; }
+body.master-theme .kpi-value { color: #0f172a; }
+body.master-theme input[type="text"],
+body.master-theme input[type="number"],
+body.master-theme input[type="tel"],
+body.master-theme input[type="date"],
+body.master-theme input[type="time"],
+body.master-theme input[type="email"],
+body.master-theme input[type="password"],
+body.master-theme input[type="search"],
+body.master-theme select,
+body.master-theme textarea {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+body.master-theme .form-label { color: #475569; }
+body.master-theme table.data-table th { color: #64748b; }
+body.master-theme table.data-table th,
+body.master-theme table.data-table td { border-color: #e2e8f0; }
+body.master-theme table.data-table tbody tr:hover { background: #f1f5f9; }
+body.master-theme .btn-secondary { background: #e2e8f0; color: #0f172a; }
+body.master-theme .btn-secondary:hover { background: #cbd5e1; }
+body.master-theme .btn-ghost { color: #0f172a; border-color: #cbd5e1; }
+body.master-theme .badge { background: #e2e8f0; color: #0f172a; }
+body.master-theme .muted { color: #64748b; }

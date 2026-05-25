@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block page_title %}Аудит — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Журнал аудита</h1>
+    <p class="page-subtitle">Последние действия пользователей</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if logs %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>Пользователь</th>
+        <th>Действие</th>
+        <th>Сущность</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for l in logs %}
+      <tr>
+        <td>{{ l.created_at.strftime('%d.%m %H:%M:%S') if l.created_at else '—' }}</td>
+        <td>{{ l.actor.first_name ~ ' ' ~ l.actor.last_name if l.actor else 'система' }}</td>
+        <td><code>{{ l.action }}</code></td>
+        <td>{{ l.entity_type }} {{ l.entity_id or '' }}</td>
+        <td><span class="muted">{{ l.ip_address or '—' }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Записей нет</div>{% endif %}
+</div>
+{% endblock %}

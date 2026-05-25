@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Доступ запрещён — СУУПР</title>
+  <link rel="stylesheet" href="/admin/static/css/admin.css">
+</head>
+<body class="auth-page">
+  <div class="auth-card">
+    <div class="auth-title">Доступ запрещён</div>
+    <div class="auth-subtitle">У вашей роли нет прав на этот раздел.</div>
+    <div class="auth-footer">
+      <a href="/admin/" class="btn">На главную</a>
+      <form method="post" action="/admin/logout" style="display:inline;">
+        <button type="submit" class="btn btn-ghost">Выйти</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block page_title %}Заявка мастера #{{ request_obj.id|string|truncate(8, True, '') }} — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Заявка #{{ request_obj.id|string|truncate(8, True, '') }}</h1>
+    <p class="page-subtitle">{{ request_obj.address or '—' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/master-requests" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <tr><th style="width:200px;">Статус</th><td><span class="badge">{{ request_obj.status.value if request_obj.status else '—' }}</span></td></tr>
+    <tr><th>Заявитель</th><td>{{ request_obj.requester.first_name ~ ' ' ~ request_obj.requester.last_name if request_obj.requester else '—' }}</td></tr>
+    <tr><th>Мастер</th><td>{{ request_obj.assignee.first_name ~ ' ' ~ request_obj.assignee.last_name if request_obj.assignee else 'не назначен' }}</td></tr>
+    <tr><th>Филиал</th><td>{{ request_obj.branch.name if request_obj.branch else '—' }}</td></tr>
+    <tr><th>Клиент</th><td>{{ request_obj.client_name or '—' }} {% if request_obj.client_phone %}({{ request_obj.client_phone }}){% endif %}</td></tr>
+    <tr><th>Адрес</th><td>{{ request_obj.address or '—' }}</td></tr>
+    <tr><th>Ожидаемая сумма</th><td>{{ request_obj.estimated_amount or 0 }} {{ request_obj.currency or '' }}</td></tr>
+    <tr><th>Итоговая сумма</th><td>{{ request_obj.final_amount or 0 }} {{ request_obj.currency or '' }}</td></tr>
+    <tr><th>Создана</th><td>{{ request_obj.created_at.strftime('%d.%m.%Y %H:%M') if request_obj.created_at else '—' }}</td></tr>
+  </table>
+</div>
+
+{% if request_obj.comments %}
+<div class="card card-flat">
+  <h2 class="card-title">Комментарии</h2>
+  {% for c in request_obj.comments %}
+    <div class="comment-row">
+      <div class="muted">{{ c.created_at.strftime('%d.%m %H:%M') if c.created_at else '' }} — {{ c.author.first_name if c.author else '' }}</div>
+      <div>{{ c.body }}</div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

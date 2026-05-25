@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block page_title %}Заявка #{{ order.id }} — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Заявка #{{ order.id }}</h1>
+    <p class="page-subtitle">Создана {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Основная информация</h3>
+  </div>
+  <div class="form-row">
+    <div class="col">
+      <span class="muted">Статус</span>
+      <span><span class="badge {{ status_badge_class }}">{{ status_name }}</span></span>
+    </div>
+    <div class="col">
+      <span class="muted">Дата</span>
+      <span>{{ order.order_date.strftime('%d.%m.%Y') if order.order_date else '—' }}</span>
+    </div>
+    <div class="col">
+      <span class="muted">Время</span>
+      <span>{{ order.time_from or '—' }} — {{ order.time_to or '—' }}</span>
+    </div>
+    <div class="col">
+      <span class="muted">Адрес</span>
+      <span>{{ address_full }}</span>
+    </div>
+    <div class="col">
+      <span class="muted">Тип техники</span>
+      <span>{{ equip_type_name }}</span>
+    </div>
+    <div class="col">
+      <span class="muted">Описание</span>
+      <span>{{ order.short_desc or '—' }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Клиент</h3>
+  </div>
+  <div class="form-row">
+    <div class="col"><span class="muted">Имя</span><span>{{ order.client_name or '—' }}</span></div>
+    <div class="col"><span class="muted">Телефон</span><span>{{ order.client_phone or '—' }}</span></div>
+    <div class="col"><span class="muted">Источник</span><span>{{ order.source or '—' }}</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Финансы</h3>
+  </div>
+  <div class="form-row" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="col"><span class="muted">Сумма</span><span>{{ order.sum_amount or 0 }} ₽</span></div>
+    <div class="col"><span class="muted">Оплачено</span><span>{{ order.paid_amount or 0 }} ₽</span></div>
+    <div class="col"><span class="muted">Долг</span><span>{{ order.debt_amount or 0 }} ₽</span></div>
+    <div class="col"><span class="muted">СД</span><span>{{ order.sd_price or 0 }} ₽</span></div>
+  </div>
+</div>
+
+{% if user.role.code in ['owner','director','dispatcher'] %}
+<div class="row">
+  <a href="/admin/orders/{{ order.id }}/edit" class="btn">✏ Редактировать</a>
+  {% if user.role.code == 'owner' %}
+  <form method="post" action="/admin/orders/{{ order.id }}/delete" onsubmit="return confirm('Удалить заявку?');" style="margin: 0;">
+    <button type="submit" class="btn btn-danger">🗑 Удалить</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

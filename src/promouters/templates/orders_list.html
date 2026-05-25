@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block page_title %}Заявки — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Заявки</h1>
+    <p class="page-subtitle">Всего: {{ total }}</p>
+  </div>
+  <div class="page-actions">
+    {% if user.role.code in ['owner','director','dispatcher'] %}
+    <a href="/admin/orders/create" class="btn">➕ Новая заявка</a>
+    {% endif %}
+    <a href="/admin/orders/search" class="btn btn-secondary">🔍 Поиск</a>
+  </div>
+</div>
+
+<form method="get" action="/admin/orders" class="card card-flat">
+  <div class="form-row" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status">
+        <option value="">Все</option>
+        {% for s in available_statuses %}
+        <option value="{{ s.code }}" {% if filter.status == s.code %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Город</label>
+      <select name="city_id">
+        <option value="">Все</option>
+        {% for c in available_cities %}
+        <option value="{{ c.id }}" {% if filter.city_id|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">С даты</label>
+      <input type="date" name="date_from" value="{{ filter.date_from or '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">По дату</label>
+      <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn">Применить</button>
+    <a href="/admin/orders" class="btn btn-ghost">Сбросить</a>
+  </div>
+</form>
+
+<div class="card card-flat">
+  {% if orders %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Дата</th>
+        <th>Адрес</th>
+        <th>Техника</th>
+        <th>Статус</th>
+        <th>Сумма</th>
+        <th>Мастер</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for o in orders %}
+      <tr>
+        <td>#{{ o.id }}</td>
+        <td>{{ o.order_date.strftime('%d.%m.%Y') if o.order_date else '—' }}</td>
+        <td>{{ o.address_short }}</td>
+        <td>{{ o.equip_type_name }}</td>
+        <td><span class="badge {{ o.status_badge_class }}">{{ o.status_name }}</span></td>
+        <td>{{ o.sum_amount or 0 }} ₽</td>
+        <td>{{ o.assignee_name or '—' }}</td>
+        <td><a href="/admin/orders/{{ o.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">Нет заявок по выбранным фильтрам</div>
+  {% endif %}
+</div>
+{% endblock %}

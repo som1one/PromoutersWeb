@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block page_title %}СД — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Сервисные документы (СД)</h1>
+    <p class="page-subtitle">Сводка по выданному оборудованию</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if rows %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Мастер</th>
+        <th>Заявок</th>
+        <th>Сумма СД</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.master_name }}</td>
+        <td>{{ r.orders_count }}</td>
+        <td>{{ r.sd_total }} ₽</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">Нет данных</div>
+  {% endif %}
+</div>
+{% endblock %}

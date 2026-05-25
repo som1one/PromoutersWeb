@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block page_title %}Заявки мастеров — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Заявки мастеров</h1>
+    <p class="page-subtitle">Всего: {{ requests|length }}</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if requests %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Адрес</th>
+        <th>Заявитель</th>
+        <th>Мастер</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in requests %}
+      <tr>
+        <td>{{ r.id|string|truncate(8, True, '') }}</td>
+        <td>{{ r.address or '—' }}</td>
+        <td>{{ r.requester.first_name ~ ' ' ~ r.requester.last_name if r.requester else '—' }}</td>
+        <td>{{ r.assignee.first_name ~ ' ' ~ r.assignee.last_name if r.assignee else '—' }}</td>
+        <td><span class="badge">{{ r.status.value if r.status else '—' }}</span></td>
+        <td><a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Заявок нет</div>{% endif %}
+</div>
+{% endblock %}

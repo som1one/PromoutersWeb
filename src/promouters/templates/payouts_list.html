@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block page_title %}Выплаты — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Выплаты</h1>
+    <p class="page-subtitle">Всего: {{ payouts|length }}</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if payouts %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Промоутер</th>
+        <th>Период</th>
+        <th>Сумма</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in payouts %}
+      <tr>
+        <td>{{ p.promoter.first_name ~ ' ' ~ p.promoter.last_name if p.promoter else '—' }}</td>
+        <td>{{ p.period_from.strftime('%d.%m') if p.period_from else '—' }} — {{ p.period_to.strftime('%d.%m') if p.period_to else '—' }}</td>
+        <td>{{ p.amount }} ₽</td>
+        <td><span class="badge">{{ p.status.value if p.status else '—' }}</span></td>
+        <td><a href="/admin/payouts/{{ p.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Выплат пока нет</div>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Frontend / build artefacts
+logs/
+uploads/
+dist/
+build/
+*.egg-info/
+node_modules/
+
+# Operational logs
+.codex-logs/
+
+# Distribution archives — never commit
+*.tar.gz
+*.zip
+
+# Legacy code is kept locally only, outside the active project
+Valeriy/
+
+# Deploy scripts contain hardcoded production secrets — keep local only
+scripts/deploy_full.py
+scripts/deploy_ssh.py
+scripts/deploy_frontend.py
+scripts/fix_systemd.py
+scripts/optimize_server.py
+
+# Local CLI configuration
+.claude/

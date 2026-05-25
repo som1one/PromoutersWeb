@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block page_title %}Пользователи — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Пользователи</h1>
+    <p class="page-subtitle">Управление учётными записями и ролями</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/users/register" class="btn">➕ Новый пользователь</a>
+  </div>
+</div>
+
+<div class="card card-flat">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ФИО</th>
+        <th>Телефон</th>
+        <th>Email</th>
+        <th>Роль</th>
+        <th>Филиал</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.first_name }} {{ u.last_name }}</td>
+        <td>{{ u.phone or '—' }}</td>
+        <td>{{ u.email or '—' }}</td>
+        <td>{{ u.role.name if u.role else '—' }}</td>
+        <td>{{ u.branch.name if u.branch else '—' }}</td>
+        <td><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ u.status.value }}</span></td>
+        <td>
+          <form method="post" action="/admin/users/{{ u.id }}/role" style="display: inline-flex; gap: 6px; margin: 0;">
+            <select name="role_code">
+              {% for r in roles %}
+              <option value="{{ r.code }}" {% if u.role and u.role.code == r.code %}selected{% endif %}>{{ r.name }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm">Сохранить</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

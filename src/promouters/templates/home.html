@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block page_title %}Главная — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Добро пожаловать, {{ user.first_name }}!</h1>
+    <p class="page-subtitle">Роль: {{ user.role.name if user.role else 'не назначена' }}{% if user.branch %} · Филиал: {{ user.branch.name }}{% endif %}</p>
+  </div>
+</div>
+
+{% if kpis %}
+<div class="grid-cards">
+  {% for kpi in kpis %}
+  <div class="kpi">
+    <div class="kpi-label">{{ kpi.label }}</div>
+    <div class="kpi-value">{{ kpi.value }}</div>
+    {% if kpi.delta %}<div class="kpi-delta">{{ kpi.delta }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-top: 24px;">
+  <div class="card-header">
+    <h3 class="card-title">Быстрые действия</h3>
+    <p class="card-desc">Часто используемые разделы для вашей роли</p>
+  </div>
+  <div class="row">
+    {% set role = user.role.code if user.role else None %}
+    {% if role in ['owner','director','dispatcher'] %}
+      <a href="/admin/orders" class="btn">📋 К заявкам</a>
+    {% endif %}
+    {% if role == 'dispatcher' %}
+      <a href="/admin/orders/create" class="btn btn-secondary">➕ Новая заявка</a>
+    {% endif %}
+    {% if role in ['owner','branch_manager','ad_director'] %}
+      <a href="/admin/routes" class="btn">🗺 Маршруты</a>
+    {% endif %}
+    {% if role in ['owner','branch_manager','master'] %}
+      <a href="/admin/master-requests" class="btn btn-secondary">🔧 Заявки мастера</a>
+    {% endif %}
+    <a href="/admin/notifications" class="btn btn-ghost">🔔 Уведомления</a>
+  </div>
+</div>
+{% endblock %}

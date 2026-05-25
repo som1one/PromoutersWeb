@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block page_title %}Бюджеты — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Планы расходов</h1>
+    <p class="page-subtitle">Всего: {{ plans|length }}</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if plans %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Название</th>
+        <th>Филиал</th>
+        <th>Период</th>
+        <th>Сумма</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in plans %}
+      <tr>
+        <td>{{ p.title or p.id }}</td>
+        <td>{{ p.branch.name if p.branch else '—' }}</td>
+        <td>{{ p.period_from.strftime('%d.%m') if p.period_from else '—' }} — {{ p.period_to.strftime('%d.%m') if p.period_to else '—' }}</td>
+        <td>{{ p.total_amount or 0 }} ₽</td>
+        <td><span class="badge">{{ p.status.value if p.status else '—' }}</span></td>
+        <td><a href="/admin/expense-plans/{{ p.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Планов нет</div>{% endif %}
+</div>
+{% endblock %}

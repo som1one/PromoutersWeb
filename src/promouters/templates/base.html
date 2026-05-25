@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{% block page_title %}{{ page_title or 'СУУПР — Админка' }}{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/admin/static/css/admin.css">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">С</div>
+        <div class="brand-title">
+          <div class="brand-title-main">СУУПР</div>
+          <div class="brand-title-sub">{% block brand_sub %}Панель управления{% endblock %}</div>
+        </div>
+      </div>
+
+      {% set role = user.role.code if user and user.role else None %}
+
+      {# Common: dashboard #}
+      <div class="nav-group">
+        <div class="nav-group-title">Навигация</div>
+        <a href="/admin/" class="nav-link {% if active_page == 'home' %}active{% endif %}">🏠 Главная</a>
+      </div>
+
+      {# Service orders area — owner / director / dispatcher / branch_manager / ad_director #}
+      {% if role in ['owner','director','dispatcher','branch_manager','ad_director'] %}
+      <div class="nav-group">
+        <div class="nav-group-title">Заявки</div>
+        {% if role == 'dispatcher' %}
+        <a href="/admin/orders/create" class="nav-link {% if active_page == 'order_create' %}active{% endif %}">➕ Создать заявку</a>
+        {% endif %}
+        <a href="/admin/orders" class="nav-link {% if active_page == 'orders' %}active{% endif %}">📋 Заявки</a>
+        {% if role in ['owner','director','dispatcher'] %}
+        <a href="/admin/sd" class="nav-link {% if active_page == 'sd' %}active{% endif %}">📦 СД</a>
+        {% endif %}
+        {% if role in ['owner','director'] %}
+        <a href="/admin/cash" class="nav-link {% if active_page == 'cash' %}active{% endif %}">💵 Касса</a>
+        <a href="/admin/stats" class="nav-link {% if active_page == 'stats' %}active{% endif %}">📊 Статистика</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {# Management (owner only) #}
+      {% if role == 'owner' %}
+      <div class="nav-group">
+        <div class="nav-group-title">Управление</div>
+        <a href="/admin/masters" class="nav-link {% if active_page == 'masters' %}active{% endif %}">👥 Мастера</a>
+        <a href="/admin/cities" class="nav-link {% if active_page == 'cities' %}active{% endif %}">🏙 Города</a>
+        <a href="/admin/commission" class="nav-link {% if active_page == 'commission' %}active{% endif %}">💼 Комиссии</a>
+        <a href="/admin/users" class="nav-link {% if active_page == 'users' %}active{% endif %}">🧑‍💻 Пользователи</a>
+        <a href="/admin/audit" class="nav-link {% if active_page == 'audit' %}active{% endif %}">🧾 Аудит</a>
+      </div>
+      {% elif role == 'director' %}
+      <div class="nav-group">
+        <div class="nav-group-title">Управление</div>
+        <a href="/admin/masters" class="nav-link {% if active_page == 'masters' %}active{% endif %}">👥 Мастера</a>
+      </div>
+      {% endif %}
+
+      {# Promouters area — owner / branch_manager / ad_director #}
+      {% if role in ['owner','branch_manager','ad_director'] %}
+      <div class="nav-group">
+        <div class="nav-group-title">Промоутеры</div>
+        <a href="/admin/routes" class="nav-link {% if active_page == 'routes' %}active{% endif %}">🗺 Маршруты</a>
+        <a href="/admin/payouts" class="nav-link {% if active_page == 'payouts' %}active{% endif %}">💰 Выплаты</a>
+        <a href="/admin/expense-plans" class="nav-link {% if active_page == 'expense_plans' %}active{% endif %}">📒 Бюджеты</a>
+      </div>
+      {% endif %}
+
+      {# Master requests — visible to master, branch_manager, owner #}
+      {% if role in ['owner','branch_manager','master'] %}
+      <div class="nav-group">
+        <div class="nav-group-title">Сервис</div>
+        <a href="/admin/master-requests" class="nav-link {% if active_page == 'master_requests' %}active{% endif %}">🔧 Заявки мастера</a>
+      </div>
+      {% endif %}
+
+      {# Notifications: everyone #}
+      <div class="nav-group">
+        <div class="nav-group-title">Прочее</div>
+        <a href="/admin/notifications" class="nav-link {% if active_page == 'notifications' %}active{% endif %}">🔔 Уведомления</a>
+      </div>
+
+      <div class="sidebar-footer">
+        {% if user %}
+        <div class="sidebar-user">
+          <b>{{ user.first_name }} {{ user.last_name }}</b><br>
+          <span class="muted">{{ user.role.name if user.role else '' }}</span>
+        </div>
+        {% endif %}
+        <form method="post" action="/admin/logout" style="margin: 0;">
+          <button type="submit" class="btn btn-ghost btn-sm" style="width: 100%;">Выйти</button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="content">
+      {% if flash_error %}<div class="error-message">{{ flash_error }}</div>{% endif %}
+      {% if flash_success %}<div class="success-message">{{ flash_success }}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="/admin/static/js/toast.js"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

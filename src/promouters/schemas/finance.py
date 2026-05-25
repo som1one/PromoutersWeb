@@ -1,0 +1,121 @@
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator
+
+from promouters.models.enums import PayoutRateType, PayoutStatus
+
+
+SUPPORTED_PAYOUT_RATE_TYPES = {PayoutRateType.HOURLY, PayoutRateType.PER_LEAFLET}
+
+
+class PayoutRateCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    rate_type: PayoutRateType
+    amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)
+    currency: str = Field(default="RUB", min_length=3, max_length=3)
+    per_unit_name: str | None = Field(default=None, max_length=50)
+    active_from: date | None = None
+    active_to: date | None = None
+    is_active: bool = True
+    branch_id: UUID | None = None
+    role_id: UUID | None = None
+
+    @field_validator("rate_type")
+    @classmethod
+    def validate_supported_types(cls, value: PayoutRateType) -> PayoutRateType:
+        if value not in SUPPORTED_PAYOUT_RATE_TYPES:
+            raise ValueError("Only hourly and per_leaflet payout rates are supported in MVP")
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        return value.upper()
+
+
+class PayoutRateUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    rate_type: PayoutRateType | None = None
+    amount: Decimal | None = Field(default=None, gt=0, decimal_places=2, max_digits=12)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    per_unit_name: str | None = Field(default=None, max_length=50)
+    active_from: date | None = None
+    active_to: date | None = None
+    is_active: bool | None = None
+    branch_id: UUID | None = None
+    role_id: UUID | None = None
+
+    @field_validator("rate_type")
+    @classmethod
+    def validate_supported_types(cls, value: PayoutRateType | None) -> PayoutRateType | None:
+        if value is not None and value not in SUPPORTED_PAYOUT_RATE_TYPES:
+            raise ValueError("Only hourly and per_leaflet payout rates are supported in MVP")
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str | None) -> str | None:
+        return value.upper() if value is not None else None
+
+
+class PayoutRateRead(BaseModel):
+    id: UUID
+    name: str
+    rate_type: str
+    amount: Decimal
+    currency: str
+    per_unit_name: str | None
+    active_from: date | None
+    active_to: date | None
+    is_active: bool
+    branch_id: UUID | None
+    branch_name: str | None
+    role_id: UUID | None
+    role_name: str | None
+    created_by_id: UUID
+    created_by_name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PayoutRead(BaseModel):
+    id: UUID
+    route_id: UUID
+    route_title: str
+    work_date: date
+    session_id: UUID | None
+    promoter_id: UUID
+    promoter_name: str
+    payout_rate_id: UUID | None
+    payout_rate_name: str | None
+    payout_rate_type: str | None
+    amount: Decimal
+    currency: str
+    units: Decimal | None
+    notes: str | None
+    status: str
+    calculated_at: datetime | None
+    approved_at: datetime | None
+    paid_at: datetime | None
+    calculation_details: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PayoutListFilters(BaseModel):
+    promoter_id: UUID | None = None
+    route_id: UUID | None = None
+    branch_id: UUID | None = None
+    status: PayoutStatus | None = None
+
+
+class PayoutSummaryRead(BaseModel):
+    promoter_id: UUID
+    promoter_name: str
+    payout_count: int
+    total_amount: Decimal
+    currency: str
+    payouts: list[PayoutRead]
+

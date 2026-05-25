@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block page_title %}Мастера — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Мастера</h1>
+    <p class="page-subtitle">Всего: {{ masters|length }}</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if masters %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ФИО</th>
+        <th>Телефон</th>
+        <th>Филиал</th>
+        <th>%</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for m in masters %}
+      <tr>
+        <td>{{ m.full_name or (m.first_name + ' ' + m.last_name) }}</td>
+        <td>{{ m.phone or '—' }}</td>
+        <td>{{ m.branch.name if m.branch else '—' }}</td>
+        <td>{{ m.master_percentage or '—' }}</td>
+        <td><span class="badge {{ 'badge-success' if m.status.value == 'active' else 'badge-warning' }}">{{ m.status.value }}</span></td>
+        <td><a href="/admin/masters/{{ m.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">Мастеров нет</div>
+  {% endif %}
+</div>
+{% endblock %}

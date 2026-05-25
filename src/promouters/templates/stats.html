@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block page_title %}Статистика — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Статистика</h1>
+    <p class="page-subtitle">Период: {{ filter.date_from or '—' }} … {{ filter.date_to or '—' }}</p>
+  </div>
+</div>
+
+<form method="get" action="/admin/stats" class="card card-flat">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">С даты</label>
+      <input type="date" name="date_from" value="{{ filter.date_from or '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">По дату</label>
+      <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn">Применить</button>
+  </div>
+</form>
+
+<div class="grid-cards">
+  <div class="kpi"><div class="kpi-label">Заявок</div><div class="kpi-value">{{ stats.orders_count or 0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Выручка</div><div class="kpi-value">{{ stats.revenue or 0 }} ₽</div></div>
+  <div class="kpi"><div class="kpi-label">Среднее</div><div class="kpi-value">{{ stats.avg_check or 0 }} ₽</div></div>
+  <div class="kpi"><div class="kpi-label">Активных мастеров</div><div class="kpi-value">{{ stats.active_masters or 0 }}</div></div>
+</div>
+{% endblock %}

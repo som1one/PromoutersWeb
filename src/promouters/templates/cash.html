@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block page_title %}Касса — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Касса</h1>
+    <p class="page-subtitle">{{ filter.date_from or 'с начала' }} — {{ filter.date_to or 'сегодня' }}</p>
+  </div>
+</div>
+
+<form method="get" action="/admin/cash" class="card card-flat">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">С даты</label>
+      <input type="date" name="date_from" value="{{ filter.date_from or '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">По дату</label>
+      <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn">Применить</button>
+  </div>
+</form>
+
+<div class="grid-cards">
+  <div class="kpi">
+    <div class="kpi-label">Касса</div>
+    <div class="kpi-value">{{ report.total_cash or 0 }} ₽</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Доля компании</div>
+    <div class="kpi-value">{{ report.company_share or 0 }} ₽</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Доля мастеров</div>
+    <div class="kpi-value">{{ report.masters_share or 0 }} ₽</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Заявок</div>
+    <div class="kpi-value">{{ report.orders_count or 0 }}</div>
+  </div>
+</div>
+{% endblock %}

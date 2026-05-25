@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block page_title %}Маршруты — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Маршруты промоутеров</h1>
+    <p class="page-subtitle">Всего: {{ routes|length }}</p>
+  </div>
+  {% if user.role.code in ['owner','ad_director'] %}
+  <div class="page-actions">
+    <a href="/admin/routes/create" class="btn">➕ Новый маршрут</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card card-flat">
+  {% if routes %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Название</th>
+        <th>Промоутер</th>
+        <th>Филиал</th>
+        <th>Статус</th>
+        <th>Дата</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in routes %}
+      <tr>
+        <td>{{ r.title or r.id }}</td>
+        <td>{{ r.promoter.first_name ~ ' ' ~ r.promoter.last_name if r.promoter else '—' }}</td>
+        <td>{{ r.branch.name if r.branch else '—' }}</td>
+        <td><span class="badge">{{ r.status.value if r.status else '—' }}</span></td>
+        <td>{{ r.scheduled_at.strftime('%d.%m.%Y') if r.scheduled_at else '—' }}</td>
+        <td><a href="/admin/routes/{{ r.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">Маршрутов нет</div>
+  {% endif %}
+</div>
+{% endblock %}

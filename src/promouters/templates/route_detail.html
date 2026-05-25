@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block page_title %}Маршрут — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ route.title or 'Маршрут' }}</h1>
+    <p class="page-subtitle">ID: {{ route.id }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/routes" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Общее</h3></div>
+  <div class="form-row">
+    <div class="col"><span class="muted">Статус</span><span><span class="badge">{{ route.status.value if route.status else '—' }}</span></span></div>
+    <div class="col"><span class="muted">Филиал</span><span>{{ route.branch.name if route.branch else '—' }}</span></div>
+    <div class="col"><span class="muted">Промоутер</span><span>{{ route.promoter.first_name ~ ' ' ~ route.promoter.last_name if route.promoter else '—' }}</span></div>
+    <div class="col"><span class="muted">Запланирован</span><span>{{ route.scheduled_at.strftime('%d.%m.%Y %H:%M') if route.scheduled_at else '—' }}</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Точки маршрута ({{ route.points|length if route.points else 0 }})</h3></div>
+  {% if route.points %}
+  <table class="data-table">
+    <thead><tr><th>#</th><th>Тип</th><th>Адрес</th><th>Координаты</th></tr></thead>
+    <tbody>
+    {% for p in route.points %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ p.point_type.value if p.point_type else '—' }}</td>
+        <td>{{ p.address or '—' }}</td>
+        <td>{{ p.latitude }}, {{ p.longitude }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Нет точек</div>{% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Сессии</h3></div>
+  {% if route.sessions %}
+  <table class="data-table">
+    <thead><tr><th>Статус</th><th>Начало</th><th>Завершение</th><th>Листовок</th></tr></thead>
+    <tbody>
+    {% for s in route.sessions %}
+      <tr>
+        <td><span class="badge">{{ s.status.value if s.status else '—' }}</span></td>
+        <td>{{ s.started_at.strftime('%d.%m %H:%M') if s.started_at else '—' }}</td>
+        <td>{{ s.completed_at.strftime('%d.%m %H:%M') if s.completed_at else '—' }}</td>
+        <td>{{ s.leaflets_distributed or 0 }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Сессий не было</div>{% endif %}
+</div>
+{% endblock %}

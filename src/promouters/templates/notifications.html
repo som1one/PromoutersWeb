@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block page_title %}Уведомления — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Уведомления</h1>
+    <p class="page-subtitle">Всего: {{ notifications|length }}</p>
+  </div>
+</div>
+
+<div class="card card-flat">
+  {% if notifications %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>Тип</th>
+        <th>Сообщение</th>
+        <th>Статус</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for n in notifications %}
+      <tr style="{% if n.status.value != 'read' %}font-weight: 600;{% endif %}">
+        <td>{{ n.created_at.strftime('%d.%m %H:%M') if n.created_at else '—' }}</td>
+        <td><span class="badge">{{ n.channel.value if n.channel else '—' }}</span></td>
+        <td>{{ n.message or n.title or '—' }}</td>
+        <td><span class="badge {{ 'badge-success' if n.status.value == 'read' else 'badge-info' }}">{{ n.status.value if n.status else '—' }}</span></td>
+        <td>
+          {% if n.status.value != 'read' %}
+          <form method="post" action="/admin/notifications/{{ n.id }}/read" style="margin: 0;">
+            <button class="btn btn-sm">Прочитано</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">Нет уведомлений</div>{% endif %}
+</div>
+{% endblock %}

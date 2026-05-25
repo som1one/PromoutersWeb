@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block page_title %}Новая заявка — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Новая заявка</h1>
+    <p class="page-subtitle">Заполните поля и сохраните</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="/admin/orders/create" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Город</label>
+      <select name="city_id">
+        <option value="">—</option>
+        {% for c in available_cities %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Тип техники</label>
+      <select name="equip_type">
+        <option value="">—</option>
+        {% for et in available_equip_types %}
+          <option value="{{ et.code }}">{{ et.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Дата</label>
+      <input type="date" name="order_date" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Время с / до</label>
+      <div class="row">
+        <input type="time" name="time_from">
+        <input type="time" name="time_to">
+      </div>
+    </div>
+  </div>
+
+  <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr;">
+    <div class="form-group">
+      <label class="form-label">Улица</label>
+      <input type="text" name="street" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Дом</label>
+      <input type="text" name="house">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Квартира</label>
+      <input type="text" name="flat">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Клиент</label>
+      <input type="text" name="client_name">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Телефон клиента</label>
+      <input type="tel" name="client_phone">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Описание</label>
+    <textarea name="short_desc" rows="3"></textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">Создать</button>
+    <a href="/admin/orders" class="btn btn-ghost">Отмена</a>
+  </div>
+</form>
+{% endblock %}

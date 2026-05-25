@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Подтверждение SMS — СУУПР</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/admin/static/css/admin.css">
+  <link rel="stylesheet" href="/admin/static/css/login.css">
+</head>
+<body class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-logo">С</div>
+      <div>
+        <div class="auth-title">Подтверждение</div>
+        <div class="auth-subtitle">Введите код из SMS, отправленный на ваш номер</div>
+      </div>
+    </div>
+
+    {% if flash_error %}<div class="error-message">{{ flash_error }}</div>{% endif %}
+
+    <form method="post" action="/admin/verify-sms">
+      <div class="form-group">
+        <label class="form-label" for="code">Код подтверждения</label>
+        <input id="code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+               required maxlength="8" pattern="\d{4,8}" placeholder="000000">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn" style="width: 100%; justify-content: center;">Подтвердить</button>
+      </div>
+    </form>
+
+    <div class="auth-footer">
+      <a href="/admin/login">← Вернуться к входу</a>
+    </div>
+  </div>
+</body>
+</html>

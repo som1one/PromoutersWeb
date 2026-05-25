@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block page_title %}404 — СУУПР{% endblock %}
+{% block content %}
+<div class="empty-state">
+  <h1 class="page-title">{{ what or 'Объект' }} не найден</h1>
+  <p class="page-subtitle">Проверьте идентификатор или вернитесь на главную.</p>
+  <a href="/admin/" class="btn">На главную</a>
+</div>
+{% endblock %}
