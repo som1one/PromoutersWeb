@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block page_title %}Пользователь · {{ target.first_name }} {{ target.last_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ target.first_name }} {{ target.last_name }}</h1>
+    <p class="page-subtitle">@{{ target.username }} · {{ target.role.name if target.role else 'без роли' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/users" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="/admin/users/{{ target.id }}" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Имя</label>
+      <input type="text" name="first_name" value="{{ target.first_name or '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Фамилия</label>
+      <input type="text" name="last_name" value="{{ target.last_name or '' }}" required>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Телефон</label>
+      <input type="tel" name="phone" value="{{ target.phone or '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" name="email" value="{{ target.email or '' }}" required>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Роль</label>
+      <select name="role_code" required>
+        {% for r in roles %}
+        <option value="{{ r.code }}" {% if target.role and target.role.code == r.code %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id">
+        <option value="">— без филиала (только owner) —</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if target.branch_id and target.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status_code">
+        <option value="active" {% if target.status.value == 'active' %}selected{% endif %}>Активен</option>
+        <option value="inactive" {% if target.status.value == 'inactive' %}selected{% endif %}>Неактивен</option>
+        <option value="suspended" {% if target.status.value == 'suspended' %}selected{% endif %}>Заблокирован</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Новый пароль (опционально)</label>
+      <input type="password" name="password" minlength="6" placeholder="оставьте пустым чтобы не менять">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn">Сохранить</button>
+    <a href="/admin/users" class="btn btn-ghost">Отмена</a>
+    {% if user.role and user.role.code == 'owner' and target.id != user.id %}
+    <button type="submit" class="btn btn-danger" formaction="/admin/users/{{ target.id }}/delete" onclick="return confirm('Удалить пользователя?');">Удалить</button>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

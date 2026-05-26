@@ -4,48 +4,76 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Пользователи</h1>
-    <p class="page-subtitle">Управление учётными записями и ролями</p>
+    <p class="page-subtitle">Учётные записи, роли, филиалы</p>
   </div>
   <div class="page-actions">
     <a href="/admin/users/register" class="btn">➕ Новый пользователь</a>
   </div>
 </div>
 
+<form method="get" action="/admin/users" class="card card-flat" style="margin-bottom: 16px;">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Поиск (имя/телефон/email/username)</label>
+      <input type="search" name="search" value="{{ filter.search }}" placeholder="например: Анна">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Роль</label>
+      <select name="role_code">
+        <option value="">— любая —</option>
+        {% for r in roles %}
+        <option value="{{ r.code }}" {% if filter.role_code == r.code %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id">
+        <option value="">— любой —</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if filter.branch_id == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display: flex; align-items: end; gap: 10px;">
+      <button class="btn">Применить</button>
+      <a href="/admin/users" class="btn btn-ghost">Сбросить</a>
+    </div>
+  </div>
+</form>
+
 <div class="card card-flat">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>ФИО</th>
-        <th>Телефон</th>
-        <th>Email</th>
-        <th>Роль</th>
-        <th>Филиал</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for u in users %}
-      <tr>
-        <td>{{ u.first_name }} {{ u.last_name }}</td>
-        <td>{{ u.phone or '—' }}</td>
-        <td>{{ u.email or '—' }}</td>
-        <td>{{ u.role.name if u.role else '—' }}</td>
-        <td>{{ u.branch.name if u.branch else '—' }}</td>
-        <td><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ u.status.value }}</span></td>
-        <td>
-          <form method="post" action="/admin/users/{{ u.id }}/role" style="display: inline-flex; gap: 6px; margin: 0;">
-            <select name="role_code">
-              {% for r in roles %}
-              <option value="{{ r.code }}" {% if u.role and u.role.code == r.code %}selected{% endif %}>{{ r.name }}</option>
-              {% endfor %}
-            </select>
-            <button class="btn btn-sm">Сохранить</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>ФИО</th>
+          <th>Контакты</th>
+          <th>Роль</th>
+          <th>Филиал</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td data-label="ФИО"><b>{{ u.first_name }} {{ u.last_name }}</b><br><span class="muted">@{{ u.username }}</span></td>
+          <td data-label="Контакты">{{ u.phone or '—' }}<br><span class="muted">{{ u.email or '—' }}</span></td>
+          <td data-label="Роль">{{ u.role.name if u.role else '—' }}</td>
+          <td data-label="Филиал">{{ u.branch.name if u.branch else '—' }}</td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ u.status.value }}</span></td>
+          <td data-label="">
+            <a href="/admin/users/{{ u.id }}" class="btn btn-sm btn-secondary">Изменить</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty-state">Нет пользователей по фильтру</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
