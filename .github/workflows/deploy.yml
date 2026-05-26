@@ -27,37 +27,40 @@ jobs:
           command_timeout: 20m
           script_stop: true
           script: |
-            set -euo pipefail
+            set -euxo pipefail
 
             APP_DIR=/opt/suupr
-            APP_USER=suupr
             SERVICE_NAME=suupr-backend
             REPO_URL=https://github.com/som1one/PromoutersWeb.git
             BRANCH=main
 
-            echo ">> [1/7] Sync code in $APP_DIR"
+            # Кто на сервере отвечает за работу backend (для финального chown).
+            # Если такого пользователя нет — оставим владельцем root, ничего не сломаем.
+            APP_USER=suupr
+            id "$APP_USER" >/dev/null 2>&1 || APP_USER=root
+            APP_GROUP=$(id -gn "$APP_USER")
+
+            echo ">> [1/7] Sync code in $APP_DIR (user=$APP_USER)"
             mkdir -p "$APP_DIR"
-            chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+            cd "$APP_DIR"
 
             if [ ! -d "$APP_DIR/.git" ]; then
               if [ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
-                echo "Empty dir — fresh clone into $APP_DIR"
-                sudo -u "$APP_USER" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+                echo "Empty dir — fresh clone"
+                git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
               else
-                echo "Non-empty dir without .git — init in place, preserving existing files"
-                sudo -u "$APP_USER" git -C "$APP_DIR" init -q
-                sudo -u "$APP_USER" git -C "$APP_DIR" remote add origin "$REPO_URL" 2>/dev/null \
-                  || sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "$REPO_URL"
-                sudo -u "$APP_USER" git -C "$APP_DIR" fetch origin "$BRANCH"
-                # Жёстко выставляем рабочее дерево на origin/main, но не трогаем .env/.venv/media и т.п.
-                # (они в .gitignore — git их не видит)
-                sudo -u "$APP_USER" git -C "$APP_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
+                echo "Non-empty dir without .git — init in place, preserve .env/.venv/media"
+                git -C "$APP_DIR" init -q
+                git -C "$APP_DIR" remote remove origin 2>/dev/null || true
+                git -C "$APP_DIR" remote add origin "$REPO_URL"
+                git -C "$APP_DIR" fetch origin "$BRANCH"
+                git -C "$APP_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
               fi
             else
-              sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "$REPO_URL"
-              sudo -u "$APP_USER" git -C "$APP_DIR" fetch origin "$BRANCH"
-              sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard "origin/$BRANCH"
-              sudo -u "$APP_USER" git -C "$APP_DIR" clean -fd \
+              git -C "$APP_DIR" remote set-url origin "$REPO_URL"
+              git -C "$APP_DIR" fetch origin "$BRANCH"
+              git -C "$APP_DIR" reset --hard "origin/$BRANCH"
+              git -C "$APP_DIR" clean -fd \
                 -e .env \
                 -e .venv \
                 -e media \
@@ -66,33 +69,37 @@ jobs:
                 -e frontend/node_modules \
                 -e frontend/dist
             fi
-            echo "HEAD: $(sudo -u "$APP_USER" git -C "$APP_DIR" rev-parse --short HEAD)"
+            echo "HEAD: $(git -C "$APP_DIR" rev-parse --short HEAD)"
 
             echo ">> [2/7] Python venv + deps"
             if [ ! -d "$APP_DIR/.venv" ]; then
-              sudo -u "$APP_USER" python3 -m venv "$APP_DIR/.venv"
+              python3 -m venv "$APP_DIR/.venv"
             fi
-            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/pip install --upgrade pip --quiet"
-            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/pip install -e . --quiet"
+            "$APP_DIR/.venv/bin/pip" install --upgrade pip --quiet
+            "$APP_DIR/.venv/bin/pip" install -e "$APP_DIR" --quiet
 
             echo ">> [3/7] Database migrations"
-            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/python -m alembic upgrade head"
+            cd "$APP_DIR"
+            "$APP_DIR/.venv/bin/python" -m alembic upgrade head
 
             echo ">> [4/7] Frontend build"
-            sudo -u "$APP_USER" bash -lc "cd $APP_DIR/frontend && npm install --no-audit --no-fund --prefer-offline"
-            sudo -u "$APP_USER" bash -lc "cd $APP_DIR/frontend && npm run build"
+            cd "$APP_DIR/frontend"
+            npm install --no-audit --no-fund --prefer-offline
+            npm run build
 
-            echo ">> [5/7] Restart backend"
+            echo ">> [5/7] Fix ownership for $APP_USER:$APP_GROUP"
+            chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
+
+            echo ">> [6/7] Restart backend"
             systemctl restart "$SERVICE_NAME"
             sleep 2
             systemctl is-active "$SERVICE_NAME"
 
-            echo ">> [6/7] Reload nginx (in case static path changed)"
+            echo ">> [7/7] Reload nginx and smoke check"
             nginx -t
             systemctl reload nginx
-
-            echo ">> [7/7] Smoke check"
+            sleep 1
             curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health
-            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n' http://127.0.0.1/
+            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n'  http://127.0.0.1/
 
             echo "=== DEPLOY OK ==="
