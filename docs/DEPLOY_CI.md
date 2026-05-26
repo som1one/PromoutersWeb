@@ -10,7 +10,7 @@ Workflow: `.github/workflows/deploy.yml`
 
 Подключается по SSH к серверу под root, на сервере под пользователем `suupr`:
 
-1. `git fetch + reset --hard origin/main` в `/opt/postamats` (первый раз — clone)
+1. `git fetch + reset --hard origin/main` в `/opt/promouters` (первый раз — clone)
 2. Обновляет venv: `pip install -e .`
 3. `alembic upgrade head`
 4. Собирает фронт: `npm install && npm run build`
@@ -45,12 +45,12 @@ gh secret set SSH_PASSWORD --body '<root_password>'
 
 ### 2. Сервер: один раз провизионируем
 
-Если `/opt/postamats` пуст или ещё не существует, выполните локально через ваш `scripts/deploy_full.py` (который уже умеет ставить пакеты, БД, systemd, nginx). Или вручную одной командой по SSH:
+Если `/opt/promouters` пуст или ещё не существует, выполните локально через ваш `scripts/deploy_full.py` (который уже умеет ставить пакеты, БД, systemd, nginx). Или вручную одной командой по SSH:
 
 ```bash
 ssh root@72.56.38.35 'bash -s' <<'EOF'
 set -e
-APP_DIR=/opt/postamats
+APP_DIR=/opt/promouters
 APP_USER=suupr
 id $APP_USER 2>/dev/null || useradd --system --create-home --shell /bin/bash $APP_USER
 mkdir -p $APP_DIR
@@ -69,12 +69,12 @@ EOF
 
 После этого:
 
-1. Создайте `/opt/postamats/.env` (формат — `.env.example`, проставьте реальные пароли БД и JWT).
+1. Создайте `/opt/promouters/.env` (формат — `.env.example`, проставьте реальные пароли БД и JWT).
 2. Создайте Postgres БД и пользователя по этим же значениям.
 3. Накатите миграции и сидер:
    ```bash
-   sudo -u suupr bash -c 'cd /opt/postamats && .venv/bin/python -m alembic upgrade head'
-   sudo -u suupr bash -c 'cd /opt/postamats && .venv/bin/python scripts/seed_demo_data.py'
+   sudo -u suupr bash -c 'cd /opt/promouters && .venv/bin/python -m alembic upgrade head'
+   sudo -u suupr bash -c 'cd /opt/promouters && .venv/bin/python scripts/seed_demo_data.py'
    ```
 4. Положите systemd-юнит `/etc/systemd/system/suupr-backend.service`:
    ```ini
@@ -87,9 +87,9 @@ EOF
    Type=simple
    User=suupr
    Group=suupr
-   WorkingDirectory=/opt/postamats
-   EnvironmentFile=/opt/postamats/.env
-   ExecStart=/opt/postamats/.venv/bin/uvicorn promouters.main:app --host 127.0.0.1 --port 8000 --no-access-log
+   WorkingDirectory=/opt/promouters
+   EnvironmentFile=/opt/promouters/.env
+   ExecStart=/opt/promouters/.venv/bin/uvicorn promouters.main:app --host 127.0.0.1 --port 8000 --no-access-log
    Restart=always
    RestartSec=3
 
@@ -99,7 +99,7 @@ EOF
    ```bash
    systemctl daemon-reload && systemctl enable --now suupr-backend
    ```
-5. Положите nginx-конфиг `/etc/nginx/sites-available/suupr` (как в `scripts/deploy_full.py` константа `NGINX_SITE`, замените `/opt/suupr` на `/opt/postamats`), и:
+5. Положите nginx-конфиг `/etc/nginx/sites-available/suupr` (как в `scripts/deploy_full.py` константа `NGINX_SITE`, замените `/opt/suupr` на `/opt/promouters`), и:
    ```bash
    ln -sf /etc/nginx/sites-available/suupr /etc/nginx/sites-enabled/suupr
    rm -f /etc/nginx/sites-enabled/default
@@ -123,7 +123,7 @@ Workflow всегда деплоит `origin/main`. Откат через `git r
 ```bash
 gh workflow run deploy.yml          # перезапуск последнего main
 # или вручную, минуя CI:
-ssh root@72.56.38.35 'sudo -u suupr git -C /opt/postamats reset --hard <sha> && systemctl restart suupr-backend'
+ssh root@72.56.38.35 'sudo -u suupr git -C /opt/promouters reset --hard <sha> && systemctl restart suupr-backend'
 ```
 
 ## Безопасность
