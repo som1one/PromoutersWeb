@@ -60,7 +60,12 @@ jobs:
                 git -C "$APP_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
               fi
             else
-              git -C "$APP_DIR" remote set-url origin "$REPO_URL"
+              # remote может отсутствовать (репо инициализирован через git init), либо быть с другим URL
+              if git -C "$APP_DIR" remote get-url origin >/dev/null 2>&1; then
+                git -C "$APP_DIR" remote set-url origin "$REPO_URL"
+              else
+                git -C "$APP_DIR" remote add origin "$REPO_URL"
+              fi
               git -C "$APP_DIR" fetch origin "$BRANCH"
               git -C "$APP_DIR" reset --hard "origin/$BRANCH"
               git -C "$APP_DIR" clean -fd \
