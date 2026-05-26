@@ -39,6 +39,10 @@ jobs:
             id "$APP_USER" >/dev/null 2>&1 || APP_USER=root
             APP_GROUP=$(id -gn "$APP_USER")
 
+            # Git ≥ 2.35 отказывается работать в чужом по владельцу репо.
+            # Помечаем рабочую директорию как доверенную глобально для root.
+            git config --global --add safe.directory "$APP_DIR"
+
             echo ">> [1/7] Sync code in $APP_DIR (user=$APP_USER)"
             mkdir -p "$APP_DIR"
             cd "$APP_DIR"
