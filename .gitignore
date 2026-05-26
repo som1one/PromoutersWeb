@@ -46,3 +46,7 @@ scripts/optimize_server.py
 
 # Local CLI configuration
 .claude/
+
+# Local diagnostic helpers (never commit — may contain server connection details)
+scripts/_*.py
+
