@@ -1,0 +1,85 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            APP_DIR=/opt/postamats
+            APP_USER=suupr
+            SERVICE_NAME=suupr-backend
+            REPO_URL=https://github.com/som1one/PromoutersWeb.git
+            BRANCH=main
+
+            echo ">> [1/7] Sync code in $APP_DIR"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "First-time clone into $APP_DIR"
+              mkdir -p "$APP_DIR"
+              chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+              sudo -u "$APP_USER" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+            else
+              sudo -u "$APP_USER" git -C "$APP_DIR" fetch origin "$BRANCH"
+              sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard "origin/$BRANCH"
+              sudo -u "$APP_USER" git -C "$APP_DIR" clean -fd \
+                -e .env \
+                -e .venv \
+                -e media \
+                -e logs \
+                -e frontend/.env.local \
+                -e frontend/node_modules \
+                -e frontend/dist
+            fi
+            echo "HEAD: $(git -C "$APP_DIR" rev-parse --short HEAD)"
+
+            echo ">> [2/7] Python venv + deps"
+            if [ ! -d "$APP_DIR/.venv" ]; then
+              sudo -u "$APP_USER" python3 -m venv "$APP_DIR/.venv"
+            fi
+            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/pip install --upgrade pip --quiet"
+            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/pip install -e . --quiet"
+
+            echo ">> [3/7] Database migrations"
+            sudo -u "$APP_USER" bash -lc "cd $APP_DIR && .venv/bin/python -m alembic upgrade head"
+
+            echo ">> [4/7] Frontend build"
+            sudo -u "$APP_USER" bash -lc "cd $APP_DIR/frontend && npm install --no-audit --no-fund --prefer-offline"
+            sudo -u "$APP_USER" bash -lc "cd $APP_DIR/frontend && npm run build"
+
+            echo ">> [5/7] Restart backend"
+            systemctl restart "$SERVICE_NAME"
+            sleep 2
+            systemctl is-active "$SERVICE_NAME"
+
+            echo ">> [6/7] Reload nginx (in case static path changed)"
+            nginx -t
+            systemctl reload nginx
+
+            echo ">> [7/7] Smoke check"
+            curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health
+            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n' http://127.0.0.1/
+
+            echo "=== DEPLOY OK ==="
