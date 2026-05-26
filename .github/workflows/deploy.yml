@@ -104,10 +104,17 @@ jobs:
             systemctl is-active "$SERVICE_NAME"
 
             echo ">> [7/7] Reload nginx and smoke check"
+            # Гарантируем, что nginx проксирует /admin/* в uvicorn (а не отдаёт SPA index.html).
+            install -m 644 "$APP_DIR/deploy/nginx-suupr.conf" /etc/nginx/sites-available/suupr
+            ln -sf /etc/nginx/sites-available/suupr /etc/nginx/sites-enabled/suupr
+            rm -f /etc/nginx/sites-enabled/default
             nginx -t
             systemctl reload nginx
             sleep 1
             curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health
             curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n'  http://127.0.0.1/
+            # Проверяем что /admin/login отдаёт серверный Jinja, а не SPA
+            ADMIN_HTML=$(curl -sS http://127.0.0.1/admin/login | head -c 200)
+            echo "ADMIN_HEAD: $ADMIN_HTML"
 
             echo "=== DEPLOY OK ==="
