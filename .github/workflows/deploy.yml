@@ -117,4 +117,21 @@ jobs:
             ADMIN_HTML=$(curl -sS http://127.0.0.1/admin/login | head -c 200)
             echo "ADMIN_HEAD: $ADMIN_HTML"
 
+            echo ">> [diag] Try login flow programmatically"
+            COOKIE_JAR=$(mktemp)
+            LOGIN_HEADERS=$(curl -sS -i -c "$COOKIE_JAR" \
+              -d "phone=%2B79990000001&password=demo12345&next=" \
+              http://127.0.0.1/admin/login | head -25)
+            echo "--- /admin/login response headers ---"
+            echo "$LOGIN_HEADERS"
+            echo "--- cookies after login ---"
+            cat "$COOKIE_JAR" | grep -v '^#' || true
+            echo "--- GET /admin/ with cookies ---"
+            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_home.html \
+              -w 'HOME=%{http_code} redirect=%{redirect_url}\n' \
+              http://127.0.0.1/admin/
+            echo "--- /admin/ first 200 chars ---"
+            head -c 200 /tmp/admin_home.html
+            rm -f "$COOKIE_JAR" /tmp/admin_home.html
+
             echo "=== DEPLOY OK ==="
