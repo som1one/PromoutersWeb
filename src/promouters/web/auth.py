@@ -63,7 +63,7 @@ async def login_submit(
     if result.requires_sms_verification:
         response = RedirectResponse("/admin/verify-sms", status_code=302)
         # Short-lived cookie to carry the challenge id between the two steps.
-        secure = not getattr(settings, "debug", True)
+        secure = bool(getattr(settings, "web_cookie_secure", False))
         response.set_cookie(
             CHALLENGE_COOKIE,
             value=str(result.challenge_id),

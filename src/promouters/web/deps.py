@@ -141,7 +141,7 @@ def set_auth_cookies(
     refresh_token: str,
     settings: Settings,
 ) -> None:
-    secure = not settings.debug if hasattr(settings, "debug") else False
+    secure = bool(getattr(settings, "web_cookie_secure", False))
     response.set_cookie(
         key=ACCESS_COOKIE,
         value=access_token,

@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     photo_report_reminder_max_minutes: int = 30
     photo_report_reminders_enabled: bool = True
 
+    # Web admin (Jinja) cookie security flag.
+    # На HTTP-only сервере без TLS должен быть false, иначе браузер
+    # не сохранит куки и пользователь будет редиректиться на /admin/login.
+    web_cookie_secure: bool = False
+
     @computed_field
     @property
     def database_url(self) -> str:

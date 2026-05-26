@@ -99,6 +99,9 @@ jobs:
             chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
 
             echo ">> [6/7] Restart backend"
+            # Гарантируем, что в /opt/suupr/.env присутствует WEB_COOKIE_SECURE=false (для http-доступа без TLS).
+            grep -q '^WEB_COOKIE_SECURE=' /opt/suupr/.env || echo 'WEB_COOKIE_SECURE=false' >> /opt/suupr/.env
+            chown suupr:suupr /opt/suupr/.env
             systemctl restart "$SERVICE_NAME"
             sleep 2
             systemctl is-active "$SERVICE_NAME"
@@ -132,6 +135,15 @@ jobs:
               http://127.0.0.1/admin/
             echo "--- /admin/ first 200 chars ---"
             head -c 200 /tmp/admin_home.html
-            rm -f "$COOKIE_JAR" /tmp/admin_home.html
+            echo ""
+            echo "--- GET /admin/stats with cookies ---"
+            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_stats.html \
+              -w 'STATS=%{http_code}\n' \
+              http://127.0.0.1/admin/stats
+            head -c 200 /tmp/admin_stats.html
+            echo ""
+            echo "--- last 60 lines of suupr-backend log ---"
+            journalctl -u suupr-backend -n 60 --no-pager || tail -60 /var/log/suupr-backend.err.log || true
+            rm -f "$COOKIE_JAR" /tmp/admin_home.html /tmp/admin_stats.html
 
             echo "=== DEPLOY OK ==="
