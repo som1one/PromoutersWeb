@@ -36,12 +36,25 @@ jobs:
             BRANCH=main
 
             echo ">> [1/7] Sync code in $APP_DIR"
+            mkdir -p "$APP_DIR"
+            chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+
             if [ ! -d "$APP_DIR/.git" ]; then
-              echo "First-time clone into $APP_DIR"
-              mkdir -p "$APP_DIR"
-              chown -R "$APP_USER:$APP_USER" "$APP_DIR"
-              sudo -u "$APP_USER" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+              if [ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
+                echo "Empty dir — fresh clone into $APP_DIR"
+                sudo -u "$APP_USER" git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+              else
+                echo "Non-empty dir without .git — init in place, preserving existing files"
+                sudo -u "$APP_USER" git -C "$APP_DIR" init -q
+                sudo -u "$APP_USER" git -C "$APP_DIR" remote add origin "$REPO_URL" 2>/dev/null \
+                  || sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "$REPO_URL"
+                sudo -u "$APP_USER" git -C "$APP_DIR" fetch origin "$BRANCH"
+                # Жёстко выставляем рабочее дерево на origin/main, но не трогаем .env/.venv/media и т.п.
+                # (они в .gitignore — git их не видит)
+                sudo -u "$APP_USER" git -C "$APP_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
+              fi
             else
+              sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "$REPO_URL"
               sudo -u "$APP_USER" git -C "$APP_DIR" fetch origin "$BRANCH"
               sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard "origin/$BRANCH"
               sudo -u "$APP_USER" git -C "$APP_DIR" clean -fd \
@@ -53,7 +66,7 @@ jobs:
                 -e frontend/node_modules \
                 -e frontend/dist
             fi
-            echo "HEAD: $(git -C "$APP_DIR" rev-parse --short HEAD)"
+            echo "HEAD: $(sudo -u "$APP_USER" git -C "$APP_DIR" rev-parse --short HEAD)"
 
             echo ">> [2/7] Python venv + deps"
             if [ ! -d "$APP_DIR/.venv" ]; then
