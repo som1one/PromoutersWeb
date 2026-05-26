@@ -29,7 +29,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            APP_DIR=/opt/promouters
+            APP_DIR=/opt/suupr
             APP_USER=suupr
             SERVICE_NAME=suupr-backend
             REPO_URL=https://github.com/som1one/PromoutersWeb.git
