@@ -1,6 +1,8 @@
 """Home page — role-aware landing under /admin/."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -10,7 +12,11 @@ from promouters.services.orders import status_counts
 from promouters.web.deps import get_web_user, render
 
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+SERVICE_ROLES = {"owner", "director", "dispatcher", "branch_manager", "ad_director"}
 
 
 @router.get("/")
@@ -21,7 +27,13 @@ async def home(
     db: Session = Depends(get_db),
 ):
     role = user.role.code if user.role else None
-    counts = status_counts(db) if role in {"owner", "director", "dispatcher", "branch_manager", "ad_director"} else {}
+    counts: dict[str, int] = {}
+    if role in SERVICE_ROLES:
+        try:
+            counts = status_counts(db)
+        except Exception:  # noqa: BLE001
+            logger.exception("status_counts failed on dashboard")
+            counts = {}
     return render(
         request,
         "home.html",
