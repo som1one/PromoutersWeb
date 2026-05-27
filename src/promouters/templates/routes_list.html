@@ -6,7 +6,7 @@
     <h1 class="page-title">Маршруты промоутеров</h1>
     <p class="page-subtitle">Всего: {{ routes|length }}</p>
   </div>
-  {% if user.role.code in ['owner','ad_director'] %}
+  {% if user.role and user.role.code in ['owner','branch_manager','ad_director','director'] %}
   <div class="page-actions">
     <a href="/admin/routes/create" class="btn">➕ Новый маршрут</a>
   </div>
@@ -14,33 +14,35 @@
 </div>
 
 <div class="card card-flat">
-  {% if routes %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Название</th>
-        <th>Промоутер</th>
-        <th>Филиал</th>
-        <th>Статус</th>
-        <th>Дата</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in routes %}
-      <tr>
-        <td>{{ r.title or r.id }}</td>
-        <td>{{ r.promoter.first_name ~ ' ' ~ r.promoter.last_name if r.promoter else '—' }}</td>
-        <td>{{ r.branch.name if r.branch else '—' }}</td>
-        <td><span class="badge">{{ r.status.value if r.status else '—' }}</span></td>
-        <td>{{ r.scheduled_at.strftime('%d.%m.%Y') if r.scheduled_at else '—' }}</td>
-        <td><a href="/admin/routes/{{ r.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty-state">Маршрутов нет</div>
-  {% endif %}
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Промоутер</th>
+          <th>Филиал</th>
+          <th>Точек</th>
+          <th>Статус</th>
+          <th>Дата</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in routes %}
+        <tr>
+          <td data-label="Название"><b>{{ r.title }}</b>{% if r.payout_rate %}<br><span class="muted">{{ r.payout_rate.name }}</span>{% endif %}</td>
+          <td data-label="Промоутер">{% if r.promoter %}{{ r.promoter.first_name }} {{ r.promoter.last_name }}{% else %}<span class="muted">не назначен</span>{% endif %}</td>
+          <td data-label="Филиал">{{ r.branch.name if r.branch else '—' }}</td>
+          <td data-label="Точек">{{ r.points|length }}</td>
+          <td data-label="Статус"><span class="badge {% if r.status.value == 'completed' %}badge-success{% elif r.status.value == 'in_progress' %}badge-info{% elif r.status.value == 'cancelled' %}badge-danger{% else %}badge-warning{% endif %}">{{ r.status.value }}</span></td>
+          <td data-label="Дата">{{ r.work_date.strftime('%d.%m.%Y') if r.work_date else '—' }}</td>
+          <td data-label=""><a href="/admin/routes/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty-state">Маршрутов нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

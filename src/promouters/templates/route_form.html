@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block page_title %}{% if route %}{{ route.title }}{% else %}Новый маршрут{% endif %} — СУУПР{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+  #route-map { width: 100%; height: 360px; border-radius: 12px; }
+  .point-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .point-list-row { display: flex; gap: 8px; align-items: center; padding: 8px; background: var(--bg-soft); border-radius: 8px; }
+  .point-list-row code { font-family: monospace; color: var(--text-soft); font-size: 12px; }
+</style>
+{% endblock %}
+{% block content %}
+{% set is_new = route is none %}
+{% set is_editable = is_new or (route and route.status.value in ['draft','assigned']) %}
+{% set is_draft_or_assigned = route and route.status.value in ['draft','assigned'] %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if is_new %}Новый маршрут{% else %}{{ route.title }}{% endif %}</h1>
+    {% if route %}
+    <p class="page-subtitle">
+      <span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% else %}badge-warning{% endif %}">{{ route.status.value }}</span>
+      · {{ route.points|length }} точек · {{ route.work_date.strftime('%d.%m.%Y') if route.work_date else '—' }}
+    </p>
+    {% endif %}
+  </div>
+  <div class="page-actions">
+    <a href="/admin/routes" class="btn btn-ghost">← К списку</a>
+    {% if route and is_draft_or_assigned %}
+    <form method="post" action="/admin/routes/{{ route.id }}/cancel" style="display:inline;" onsubmit="return confirm('Отменить маршрут?');">
+      <button class="btn btn-danger btn-sm">Отменить маршрут</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="{% if is_new %}/admin/routes/create{% else %}/admin/routes/{{ route.id }}/update{% endif %}" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" name="title" value="{{ route.title if route else '' }}" required {% if not is_editable %}readonly{% endif %}>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Дата работы</label>
+      <input type="date" name="work_date" value="{{ route.work_date.isoformat() if route and route.work_date else today }}" required {% if not is_editable %}readonly{% endif %}>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id" required {% if not is_new %}disabled{% endif %}>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if route and route.branch_id and route.branch_id|string == b.id|string %}selected{% elif not route and user.branch_id and user.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ставка оплаты</label>
+      <select name="payout_rate_id" {% if not is_editable %}disabled{% endif %}>
+        <option value="">— без ставки —</option>
+        {% for r in rates %}
+        <option value="{{ r.id }}" {% if route and route.payout_rate_id and route.payout_rate_id|string == r.id|string %}selected{% endif %}>{{ r.name }} ({{ r.rate_type.value }} · {{ r.amount }} ₽)</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Описание</label>
+    <textarea name="description" rows="2" {% if not is_editable %}readonly{% endif %}>{{ route.description or '' if route else '' }}</textarea>
+  </div>
+
+  <h3 class="card-title" style="margin: 16px 0 8px;">Точки маршрута</h3>
+  <p class="muted" style="margin: 0 0 8px; font-size: 13px;">
+    {% if is_editable %}Кликайте по карте, чтобы добавить точку. Перетягивайте маркеры для коррекции. Минимум 2 точки.{% else %}Карта в режиме просмотра.{% endif %}
+  </p>
+  <div id="route-map"></div>
+  <div id="points-list" class="point-list"></div>
+  <input type="hidden" name="points_json" id="points_json" value="{{ points_json or '[]' }}">
+
+  {% if is_editable %}
+  <div class="form-actions">
+    <button type="submit" class="btn">{% if is_new %}Создать маршрут{% else %}Сохранить{% endif %}</button>
+  </div>
+  {% endif %}
+</form>
+
+{% if route and route.status.value == 'draft' %}
+<form method="post" action="/admin/routes/{{ route.id }}/assign" class="card">
+  <div class="card-header"><h3 class="card-title">Назначить промоутера</h3></div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Промоутер</label>
+      <select name="promoter_id" required>
+        <option value="">— выберите —</option>
+        {% for p in promoters %}
+        <option value="{{ p.id }}">{{ p.first_name }} {{ p.last_name }} {% if p.branch %}· {{ p.branch.name }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:end;">
+      <button type="submit" class="btn">Назначить</button>
+    </div>
+  </div>
+</form>
+{% endif %}
+
+{% if route and route.points and route.sessions %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Сессии и треки</h3></div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Статус</th><th>Старт</th><th>Финиш</th><th>Листовок</th><th>GeoPings</th></tr></thead>
+      <tbody>
+      {% for s in route.sessions %}
+        <tr>
+          <td data-label="Статус"><span class="badge">{{ s.status.value }}</span></td>
+          <td data-label="Старт">{{ s.started_at.strftime('%d.%m %H:%M') if s.started_at else '—' }}</td>
+          <td data-label="Финиш">{{ s.ended_at.strftime('%d.%m %H:%M') if s.ended_at else '—' }}</td>
+          <td data-label="Листовок">{{ s.leaflet_count or 0 }}</td>
+          <td data-label="GeoPings">{{ s.geo_pings|length if s.geo_pings else 0 }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function () {
+  var initial = JSON.parse(document.getElementById('points_json').value || '[]');
+  var editable = {{ 'true' if is_editable else 'false' }};
+  var map = L.map('route-map').setView([55.751244, 37.618423], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+
+  var points = initial.map(function (p, idx) {
+    return {
+      sequence: idx + 1,
+      name: p.name || ('Точка ' + (idx + 1)),
+      address: p.address || '',
+      latitude: p.latitude,
+      longitude: p.longitude,
+      point_type: p.point_type || 'checkpoint',
+    };
+  });
+  var markers = [];
+  var line = null;
+
+  function pointTypeFor(idx, total) {
+    if (idx === 0) return 'start';
+    if (idx === total - 1) return 'finish';
+    return 'checkpoint';
+  }
+
+  function rebuild() {
+    markers.forEach(function (m) { map.removeLayer(m); });
+    markers = [];
+    if (line) { map.removeLayer(line); line = null; }
+    var listEl = document.getElementById('points-list');
+    listEl.innerHTML = '';
+    points.forEach(function (p, idx) {
+      p.sequence = idx + 1;
+      p.point_type = pointTypeFor(idx, points.length);
+      var marker = L.marker([p.latitude, p.longitude], { draggable: editable })
+        .addTo(map)
+        .bindTooltip('#' + (idx + 1) + ' · ' + p.point_type);
+      if (editable) {
+        marker.on('dragend', function (e) {
+          var ll = e.target.getLatLng();
+          p.latitude = ll.lat; p.longitude = ll.lng;
+          syncHidden();
+          rebuild();
+        });
+        marker.on('contextmenu', function () {
+          points.splice(idx, 1);
+          rebuild();
+          syncHidden();
+        });
+      }
+      markers.push(marker);
+
+      var row = document.createElement('div');
+      row.className = 'point-list-row';
+      row.innerHTML = '<b>#' + (idx + 1) + '</b> <span class="badge">' + p.point_type + '</span>'
+        + ' <code>' + p.latitude.toFixed(5) + ', ' + p.longitude.toFixed(5) + '</code>';
+      if (editable) {
+        var nameInput = document.createElement('input');
+        nameInput.value = p.name; nameInput.style.flex = '1';
+        nameInput.addEventListener('input', function () {
+          p.name = nameInput.value; syncHidden();
+        });
+        row.appendChild(nameInput);
+        var del = document.createElement('button');
+        del.type = 'button'; del.textContent = '×';
+        del.className = 'btn btn-ghost btn-sm';
+        del.addEventListener('click', function () {
+          points.splice(idx, 1); rebuild(); syncHidden();
+        });
+        row.appendChild(del);
+      }
+      listEl.appendChild(row);
+    });
+    if (points.length >= 2) {
+      line = L.polyline(points.map(function (p) { return [p.latitude, p.longitude]; }), { color: '#10b981' }).addTo(map);
+      map.fitBounds(line.getBounds().pad(0.2));
+    } else if (points.length === 1) {
+      map.setView([points[0].latitude, points[0].longitude], 14);
+    }
+  }
+
+  function syncHidden() {
+    document.getElementById('points_json').value = JSON.stringify(points);
+  }
+
+  if (editable) {
+    map.on('click', function (e) {
+      points.push({
+        sequence: points.length + 1,
+        name: 'Точка ' + (points.length + 1),
+        latitude: e.latlng.lat,
+        longitude: e.latlng.lng,
+        point_type: pointTypeFor(points.length, points.length + 1),
+      });
+      rebuild();
+      syncHidden();
+    });
+  }
+
+  rebuild();
+  syncHidden();
+})();
+</script>
+{% endblock %}
