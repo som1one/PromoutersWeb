@@ -467,27 +467,41 @@ table.data-table tbody tr:hover { background: rgba(148,163,184,0.06); }
   body.sidebar-open .sidebar { transform: translateX(0); }
   body.sidebar-open .sidebar-backdrop { display: block; }
 
-  .content { padding: 16px; }
-  .page-header { flex-direction: column; gap: 10px; }
+  .content { padding: 16px 12px 80px; }
+  .page-header { flex-direction: column; align-items: stretch; gap: 10px; }
   .page-title { font-size: 22px; }
   .page-subtitle { font-size: 13px; }
+  .page-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
 
-  .form-row { grid-template-columns: 1fr; }
-  .grid-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-  .kpi { padding: 14px 16px; }
-  .kpi-value { font-size: 22px; }
+  .form-row { grid-template-columns: 1fr; gap: 10px; }
+  .grid-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpi { padding: 12px 14px; min-width: 0; }
+  .kpi-label { font-size: 10px; }
+  .kpi-value { font-size: 18px; word-break: break-word; }
+  .kpi-delta { font-size: 11px; }
 
-  .card { padding: 16px; border-radius: 14px; }
-  .card-header { margin-bottom: 14px; }
+  .card { padding: 14px; border-radius: 14px; }
+  .card-header { margin-bottom: 12px; }
+  .card-title { font-size: 16px; }
 
-  /* Тач-таргеты — все интерактивные элементы ≥44px */
-  .btn { min-height: 44px; padding: 12px 18px; }
-  .btn-sm { min-height: 38px; padding: 8px 14px; }
-  input, select, textarea { min-height: 44px; }
-  .nav-link { min-height: 44px; padding: 12px 14px; }
+  /* Тач-таргеты — все интерактивные элементы ≥44px и шрифт ≥16px (anti-zoom на iOS) */
+  .btn { min-height: 44px; padding: 12px 18px; font-size: 15px; }
+  .btn-sm { min-height: 38px; padding: 8px 14px; font-size: 14px; }
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px; /* iOS anti-zoom */
+  }
+  .nav-link { min-height: 44px; padding: 12px 14px; font-size: 15px; }
+
+  /* form-actions: кнопки в столбик с полной шириной */
+  .form-actions { flex-direction: column; gap: 10px; }
+  .form-actions .btn { width: 100%; justify-content: center; }
+
+  /* row внутри карточек (поиск + кнопки) — переносы и единая ширина */
+  .row { flex-direction: column; align-items: stretch; }
 
   /* Скролл таблиц вместо обрезки */
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -12px; padding: 0 12px; }
   table.data-table { min-width: 640px; }
   table.data-table th, table.data-table td { padding: 10px 12px; font-size: 13px; }
 
@@ -500,13 +514,16 @@ table.data-table tbody tr:hover { background: rgba(148,163,184,0.06); }
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     margin-bottom: 12px;
-    padding: 8px 12px;
+    padding: 10px 12px;
     background: var(--surface);
   }
   table.data-table-stack td {
     display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     border-bottom: 1px dashed rgba(148,163,184,0.12);
     padding: 8px 0;
   }
@@ -517,13 +534,31 @@ table.data-table tbody tr:hover { background: rgba(148,163,184,0.06); }
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    margin-right: 8px;
   }
+  table.data-table-stack td > * { max-width: 100%; }
+  table.data-table-stack td input,
+  table.data-table-stack td select,
+  table.data-table-stack td textarea {
+    width: 100%;
+    flex-basis: 100%;
+  }
+  table.data-table-stack td form { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  table.data-table-stack td .btn,
+  table.data-table-stack td .btn-sm { width: auto; }
+
+  /* Точки маршрута (route_form.html) */
+  .point-list-row { flex-wrap: wrap; gap: 6px; }
+  .point-list-row input { flex: 1 1 100%; }
+
+  #route-map { height: 280px; }
 }
 
 @media (max-width: 480px) {
-  .page-actions { width: 100%; }
-  .page-actions .btn { width: 100%; justify-content: center; }
+  .grid-cards { grid-template-columns: 1fr; }
+  .kpi-value { font-size: 22px; }
+  .topbar-title { font-size: 14px; }
 }
 
 
