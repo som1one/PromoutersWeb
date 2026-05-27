@@ -1,37 +1,108 @@
 {% extends "base.html" %}
 {% block page_title %}Выплаты — СУУПР{% endblock %}
 {% block content %}
+{% set is_owner_or_manager = user.role and user.role.code in ['owner','branch_manager'] %}
+
 <div class="page-header">
   <div>
     <h1 class="page-title">Выплаты</h1>
     <p class="page-subtitle">Всего: {{ payouts|length }}</p>
   </div>
+  <div class="page-actions">
+    <a href="/admin/payouts/export.csv?{% if promoter_id %}promoter_id={{ promoter_id }}&{% endif %}{% if status_filter %}status_filter={{ status_filter }}{% endif %}" class="btn btn-secondary">⬇️ CSV</a>
+  </div>
+</div>
+
+<form method="get" action="/admin/payouts" class="card card-flat">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Промоутер (UUID)</label>
+      <input type="text" name="promoter_id" value="{{ promoter_id }}" placeholder="оставьте пустым = все">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status_filter">
+        <option value="">— все —</option>
+        {% for s in statuses %}
+        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn">Применить</button>
+    <a href="/admin/payouts" class="btn btn-ghost">Сбросить</a>
+  </div>
+</form>
+
+<div class="card card-flat">
+  <div class="card-header"><h3 class="card-title">Сводка по промоутерам</h3></div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Промоутер</th><th>Выплат</th><th>Сумма</th><th></th></tr></thead>
+      <tbody>
+      {% for s in summary %}
+        <tr>
+          <td data-label="Промоутер">{{ s.promoter_name }}</td>
+          <td data-label="Выплат">{{ s.payout_count }}</td>
+          <td data-label="Сумма"><b>{{ s.total_amount }} {{ s.currency }}</b></td>
+          <td data-label=""><a href="/admin/payouts?promoter_id={{ s.promoter_id }}" class="btn btn-sm btn-ghost">Детали</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty-state">Нет данных</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div class="card card-flat">
-  {% if payouts %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Промоутер</th>
-        <th>Период</th>
-        <th>Сумма</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for p in payouts %}
-      <tr>
-        <td>{{ p.promoter.first_name ~ ' ' ~ p.promoter.last_name if p.promoter else '—' }}</td>
-        <td>{{ p.period_from.strftime('%d.%m') if p.period_from else '—' }} — {{ p.period_to.strftime('%d.%m') if p.period_to else '—' }}</td>
-        <td>{{ p.amount }} ₽</td>
-        <td><span class="badge">{{ p.status.value if p.status else '—' }}</span></td>
-        <td><a href="/admin/payouts/{{ p.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<div class="empty-state">Выплат пока нет</div>{% endif %}
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Промоутер</th>
+          <th>Маршрут</th>
+          <th>Тип</th>
+          <th>Единиц</th>
+          <th>Сумма</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in payouts %}
+        <tr>
+          <td data-label="Промоутер">{% if p.promoter %}<a href="/admin/promoters/{{ p.promoter.id }}">{{ p.promoter.first_name }} {{ p.promoter.last_name }}</a>{% else %}—{% endif %}</td>
+          <td data-label="Маршрут">{% if p.route %}<a href="/admin/routes/{{ p.route.id }}">{{ p.route.title }}</a>{% else %}—{% endif %}</td>
+          <td data-label="Тип">{{ p.payout_rate.rate_type.value if p.payout_rate else '—' }}</td>
+          <td data-label="Единиц">{{ p.units or 0 }}</td>
+          <td data-label="Сумма"><b>{{ p.amount or 0 }} {{ p.currency }}</b></td>
+          <td data-label="Статус"><span class="badge {% if p.status.value == 'paid' %}badge-success{% elif p.status.value == 'cancelled' %}badge-danger{% elif p.status.value == 'approved' %}badge-info{% else %}badge-warning{% endif %}">{{ p.status.value }}</span></td>
+          <td data-label="">
+            {% if is_owner_or_manager %}
+              {% if p.status.value == 'calculated' %}
+              <form method="post" action="/admin/payouts/{{ p.id }}/approve" style="display:inline;">
+                <button class="btn btn-sm">Одобрить</button>
+              </form>
+              {% elif p.status.value == 'approved' %}
+              <form method="post" action="/admin/payouts/{{ p.id }}/paid" style="display:inline;">
+                <button class="btn btn-sm">Отметить выплачено</button>
+              </form>
+              {% endif %}
+              {% if p.status.value not in ['paid','cancelled'] %}
+              <form method="post" action="/admin/payouts/{{ p.id }}/cancel" style="display:inline;" onsubmit="return confirm('Отменить выплату?');">
+                <button class="btn btn-sm btn-ghost">Отменить</button>
+              </form>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty-state">Выплат нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

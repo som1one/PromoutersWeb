@@ -424,3 +424,118 @@ def calculate_payout_for_route(
         request=request,
     )
     return calculated
+
+
+
+def _ensure_can_change_payout(actor_user: User, payout: Payout) -> None:
+    """Только owner и branch_manager своего филиала могут менять статусы выплат."""
+    if is_owner(actor_user):
+        return
+    role_code = get_role_code(actor_user)
+    if role_code not in {RoleCode.BRANCH_MANAGER}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    branch_id = payout.route.branch_id if payout.route else None
+    if branch_id is None or branch_id != require_branch_assignment(actor_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cross-branch payout change is forbidden")
+
+
+def approve_payout(
+    db: Session,
+    actor_user: User,
+    payout: Payout,
+    *,
+    request: Request | None = None,
+) -> Payout:
+    """CALCULATED -> APPROVED."""
+    _ensure_can_change_payout(actor_user, payout)
+    if payout.status != PayoutStatus.CALCULATED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Approve allowed only for CALCULATED, got {payout.status.value}",
+        )
+    before = to_payout_read(payout).model_dump(mode="json")
+    payout.status = PayoutStatus.APPROVED
+    payout.approved_at = datetime.now(UTC)
+    payout.approved_by_id = actor_user.id
+    db.add(payout)
+    db.flush()
+
+    updated = get_payout_or_404(db, payout.id)
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=payout.route.branch_id if payout.route else None,
+        entity_type="payout",
+        entity_id=str(payout.id),
+        action="payout.approve",
+        payload={"before": before, "after": to_payout_read(updated).model_dump(mode="json")},
+        request=request,
+    )
+    db.commit()
+    return get_payout_or_404(db, payout.id)
+
+
+def mark_payout_paid(
+    db: Session,
+    actor_user: User,
+    payout: Payout,
+    *,
+    request: Request | None = None,
+) -> Payout:
+    """APPROVED -> PAID."""
+    _ensure_can_change_payout(actor_user, payout)
+    if payout.status != PayoutStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Mark paid allowed only for APPROVED, got {payout.status.value}",
+        )
+    before = to_payout_read(payout).model_dump(mode="json")
+    payout.status = PayoutStatus.PAID
+    payout.paid_at = datetime.now(UTC)
+    db.add(payout)
+    db.flush()
+
+    updated = get_payout_or_404(db, payout.id)
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=payout.route.branch_id if payout.route else None,
+        entity_type="payout",
+        entity_id=str(payout.id),
+        action="payout.mark_paid",
+        payload={"before": before, "after": to_payout_read(updated).model_dump(mode="json")},
+        request=request,
+    )
+    db.commit()
+    return get_payout_or_404(db, payout.id)
+
+
+def cancel_payout(
+    db: Session,
+    actor_user: User,
+    payout: Payout,
+    *,
+    request: Request | None = None,
+) -> Payout:
+    _ensure_can_change_payout(actor_user, payout)
+    if payout.status == PayoutStatus.PAID:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot cancel a paid payout",
+        )
+    before = to_payout_read(payout).model_dump(mode="json")
+    payout.status = PayoutStatus.CANCELLED
+    db.add(payout)
+    db.flush()
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=payout.route.branch_id if payout.route else None,
+        entity_type="payout",
+        entity_id=str(payout.id),
+        action="payout.cancel",
+        payload={"before": before, "after": to_payout_read(payout).model_dump(mode="json")},
+        request=request,
+    )
+    db.commit()
+    return get_payout_or_404(db, payout.id)
