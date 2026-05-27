@@ -8,32 +8,52 @@
   </div>
 </div>
 
+<form method="get" action="/admin/master-requests" class="card card-flat">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status_filter">
+        <option value="">— все —</option>
+        {% for s in statuses %}
+        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:end;gap:10px;">
+      <button class="btn">Применить</button>
+      <a href="/admin/master-requests" class="btn btn-ghost">Сбросить</a>
+    </div>
+  </div>
+</form>
+
 <div class="card card-flat">
-  {% if requests %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Адрес</th>
-        <th>Заявитель</th>
-        <th>Мастер</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in requests %}
-      <tr>
-        <td>{{ r.id|string|truncate(8, True, '') }}</td>
-        <td>{{ r.address or '—' }}</td>
-        <td>{{ r.requester.first_name ~ ' ' ~ r.requester.last_name if r.requester else '—' }}</td>
-        <td>{{ r.assignee.first_name ~ ' ' ~ r.assignee.last_name if r.assignee else '—' }}</td>
-        <td><span class="badge">{{ r.status.value if r.status else '—' }}</span></td>
-        <td><a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<div class="empty-state">Заявок нет</div>{% endif %}
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Заголовок</th>
+          <th>Адрес</th>
+          <th>Заявитель</th>
+          <th>Мастер</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in requests %}
+        <tr>
+          <td data-label="Заголовок"><b>{{ r.title or '—' }}</b><br><span class="muted">{{ r.id|string|truncate(8, True, '') }}</span></td>
+          <td data-label="Адрес">{{ r.address or '—' }}</td>
+          <td data-label="Заявитель">{{ r.requester.first_name ~ ' ' ~ r.requester.last_name if r.requester else '—' }}</td>
+          <td data-label="Мастер">{{ r.assignee.first_name ~ ' ' ~ r.assignee.last_name if r.assignee else '—' }}</td>
+          <td data-label="Статус"><span class="badge {% if r.status.value in ['completed','handed_over'] %}badge-success{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ r.status.value if r.status else '—' }}</span></td>
+          <td data-label=""><a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty-state">Заявок нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

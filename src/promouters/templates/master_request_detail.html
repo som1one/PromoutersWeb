@@ -1,10 +1,26 @@
 {% extends "base.html" %}
-{% block page_title %}Заявка мастера #{{ request_obj.id|string|truncate(8, True, '') }} — СУУПР{% endblock %}
+{% block page_title %}Заявка #{{ request_obj.id|string|truncate(8, True, '') }} — СУУПР{% endblock %}
 {% block content %}
+{% set role = user.role.code if user.role else None %}
+{% set is_master = role == 'master' and request_obj.assignee_id == user.id %}
+{% set status_value = request_obj.status.value if request_obj.status else 'new' %}
+
+{# Допустимые переходы по статус-машине (лестница без скиппинга) #}
+{% set transitions = {
+    'new':         ['accepted','cancelled'],
+    'accepted':    ['on_the_way','cancelled'],
+    'on_the_way':  ['in_progress','cancelled'],
+    'in_progress': ['completed','cancelled'],
+    'completed':   ['handed_over','cancelled'],
+    'handed_over': [],
+    'cancelled':   [],
+} %}
+{% set next_states = transitions.get(status_value, []) %}
+
 <div class="page-header">
   <div>
     <h1 class="page-title">Заявка #{{ request_obj.id|string|truncate(8, True, '') }}</h1>
-    <p class="page-subtitle">{{ request_obj.address or '—' }}</p>
+    <p class="page-subtitle">{{ request_obj.title or '' }} · {{ request_obj.address or '—' }}</p>
   </div>
   <div class="page-actions">
     <a href="/admin/master-requests" class="btn btn-ghost">← К списку</a>
@@ -12,28 +28,131 @@
 </div>
 
 <div class="card">
-  <table class="data-table">
-    <tr><th style="width:200px;">Статус</th><td><span class="badge">{{ request_obj.status.value if request_obj.status else '—' }}</span></td></tr>
-    <tr><th>Заявитель</th><td>{{ request_obj.requester.first_name ~ ' ' ~ request_obj.requester.last_name if request_obj.requester else '—' }}</td></tr>
-    <tr><th>Мастер</th><td>{{ request_obj.assignee.first_name ~ ' ' ~ request_obj.assignee.last_name if request_obj.assignee else 'не назначен' }}</td></tr>
-    <tr><th>Филиал</th><td>{{ request_obj.branch.name if request_obj.branch else '—' }}</td></tr>
-    <tr><th>Клиент</th><td>{{ request_obj.client_name or '—' }} {% if request_obj.client_phone %}({{ request_obj.client_phone }}){% endif %}</td></tr>
-    <tr><th>Адрес</th><td>{{ request_obj.address or '—' }}</td></tr>
-    <tr><th>Ожидаемая сумма</th><td>{{ request_obj.estimated_amount or 0 }} {{ request_obj.currency or '' }}</td></tr>
-    <tr><th>Итоговая сумма</th><td>{{ request_obj.final_amount or 0 }} {{ request_obj.currency or '' }}</td></tr>
-    <tr><th>Создана</th><td>{{ request_obj.created_at.strftime('%d.%m.%Y %H:%M') if request_obj.created_at else '—' }}</td></tr>
-  </table>
+  <div class="card-header">
+    <h3 class="card-title">Статус</h3>
+    <p class="card-desc">
+      Сейчас: <span class="badge {% if status_value == 'completed' or status_value == 'handed_over' %}badge-success{% elif status_value == 'cancelled' %}badge-danger{% elif status_value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ status_value }}</span>
+      {% if status_value in ['on_the_way','in_progress'] %}
+      <span class="badge badge-info">📍 GPS активен</span>
+      {% endif %}
+    </p>
+  </div>
+
+  {% if next_states %}
+  <form method="post" action="/admin/master-requests/{{ request_obj.id }}/status">
+    <div class="row" style="flex-wrap: wrap;">
+      {% for ns in next_states %}
+      <button type="submit" name="new_status" value="{{ ns }}" class="btn {% if ns == 'cancelled' %}btn-danger{% else %}btn-secondary{% endif %}">
+        →
+        {% if ns == 'accepted' %}Принять
+        {% elif ns == 'on_the_way' %}В пути (включить GPS)
+        {% elif ns == 'in_progress' %}В работе
+        {% elif ns == 'completed' %}Готово (выключить GPS)
+        {% elif ns == 'handed_over' %}Забрать на СД
+        {% elif ns == 'cancelled' %}Отменить
+        {% else %}{{ ns }}{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+    <div class="form-group" style="margin-top: 8px;">
+      <label class="form-label">Комментарий к смене статуса (опц.)</label>
+      <input type="text" name="note" placeholder="Например: клиент перенёс на завтра">
+    </div>
+  </form>
+  {% endif %}
 </div>
 
-{% if request_obj.comments %}
-<div class="card card-flat">
-  <h2 class="card-title">Комментарии</h2>
-  {% for c in request_obj.comments %}
-    <div class="comment-row">
-      <div class="muted">{{ c.created_at.strftime('%d.%m %H:%M') if c.created_at else '' }} — {{ c.author.first_name if c.author else '' }}</div>
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Информация</h3></div>
+  <div class="form-row">
+    <div class="col"><span class="muted">Заявитель</span><span>{{ request_obj.requester.first_name ~ ' ' ~ request_obj.requester.last_name if request_obj.requester else '—' }}</span></div>
+    <div class="col"><span class="muted">Мастер</span><span>{{ request_obj.assignee.first_name ~ ' ' ~ request_obj.assignee.last_name if request_obj.assignee else 'не назначен' }}</span></div>
+    <div class="col"><span class="muted">Филиал</span><span>{{ request_obj.branch.name if request_obj.branch else '—' }}</span></div>
+    <div class="col"><span class="muted">Создана</span><span>{{ request_obj.created_at.strftime('%d.%m.%Y %H:%M') if request_obj.created_at else '—' }}</span></div>
+  </div>
+  <div class="form-row">
+    <div class="col"><span class="muted">Клиент</span><span>{{ request_obj.client_name or '—' }} {% if request_obj.client_phone %}· {{ request_obj.client_phone }}{% endif %}</span></div>
+    <div class="col"><span class="muted">Ожидаемая сумма</span><span>{{ request_obj.estimated_amount or 0 }} {{ request_obj.currency or '' }}</span></div>
+    <div class="col"><span class="muted">Итог</span><span>{{ request_obj.final_amount or 0 }} {{ request_obj.currency or '' }}</span></div>
+  </div>
+  {% if request_obj.description %}
+  <div class="form-group">
+    <span class="muted">Описание</span>
+    <div>{{ request_obj.description }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Комментарии ({{ request_obj.comments|length if request_obj.comments else 0 }})</h3></div>
+  {% if request_obj.comments %}
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    {% for c in request_obj.comments|sort(attribute='created_at') %}
+    <div style="padding:10px 12px; background: var(--bg-soft); border-radius: 8px;">
+      <div class="muted" style="font-size:12px;">{{ c.created_at.strftime('%d.%m %H:%M') if c.created_at else '' }}{% if c.author %} · {{ c.author.first_name }} {{ c.author.last_name }}{% endif %}</div>
       <div>{{ c.body }}</div>
     </div>
-  {% endfor %}
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty-state">Комментариев нет</div>{% endif %}
+
+  <form method="post" action="/admin/master-requests/{{ request_obj.id }}/comment" style="margin-top: 12px;">
+    <div class="form-group">
+      <label class="form-label">Новый комментарий</label>
+      <textarea name="body" rows="2" required></textarea>
+    </div>
+    <div class="form-actions"><button class="btn">Добавить</button></div>
+  </form>
+</div>
+
+{% if status_value in ['in_progress','completed','handed_over'] %}
+<form method="post" action="/admin/master-requests/{{ request_obj.id }}/bso" enctype="multipart/form-data" class="card">
+  <div class="card-header">
+    <h3 class="card-title">БСО / Документы</h3>
+    <p class="card-desc">Прикрепите файл (PDF/JPG)</p>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Тип</label>
+      <select name="attachment_type">
+        <option value="bso">БСО</option>
+        <option value="contract">Договор</option>
+        <option value="photo">Фото</option>
+        <option value="other">Другое</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Файл</label>
+      <input type="file" name="file" required>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Комментарий</label>
+    <input type="text" name="comment">
+  </div>
+  <div class="form-actions"><button class="btn">Загрузить</button></div>
+</form>
+{% endif %}
+
+{% if request_obj.status_logs %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">История статусов</h3></div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Время</th><th>Кто</th><th>Из</th><th>В</th><th>Заметка</th></tr></thead>
+      <tbody>
+      {% for log in request_obj.status_logs|sort(attribute='created_at') %}
+        <tr>
+          <td data-label="Время">{{ log.created_at.strftime('%d.%m %H:%M') if log.created_at else '—' }}</td>
+          <td data-label="Кто">{{ log.changed_by.first_name if log.changed_by else '—' }}</td>
+          <td data-label="Из">{{ log.from_status.value if log.from_status else '—' }}</td>
+          <td data-label="В"><span class="badge">{{ log.to_status.value if log.to_status else '—' }}</span></td>
+          <td data-label="Заметка">{{ log.note or '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
