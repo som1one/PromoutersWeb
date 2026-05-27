@@ -70,7 +70,8 @@ def _resolve_period(
 @router.get("/")
 async def stats_view(
     request: Request,
-    period: str = "month",
+    period: str = "custom",
+    preset: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     city_id: int | None = None,
@@ -79,7 +80,12 @@ async def stats_view(
         require_roles("owner", "branch_manager", "ad_director", "director", "dispatcher")
     ),
 ):
-    df, dt, effective_period = _resolve_period(period, date_from, date_to)
+    # Если нажата кнопка быстрого выбора — пересчитаем даты по пресету.
+    if preset and preset in stats_svc.PERIOD_PRESETS:
+        df, dt = stats_svc.get_period_bounds(preset)
+        effective_period = preset
+    else:
+        df, dt, effective_period = _resolve_period(period, date_from, date_to)
     error_message: str | None = None
     try:
         dashboard = stats_svc.calculate_dashboard_stats(
@@ -103,8 +109,8 @@ async def stats_view(
         active_page="stats",
         dashboard=dashboard,
         period=effective_period,
-        date_from=date_from or df.date().isoformat(),
-        date_to=date_to or dt.date().isoformat(),
+        date_from=df.date().isoformat(),
+        date_to=dt.date().isoformat(),
         available_periods=tuple(stats_svc.PERIOD_PRESETS) + ("custom",),
         available_cities=available_cities,
         filter={"city_id": city_id, "period": effective_period},

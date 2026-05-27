@@ -18,22 +18,15 @@
 <form method="get" action="/admin/stats" class="card card-flat" id="stats-filter">
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label">Период</label>
-      <select name="period" id="period-select">
-        {% for p in available_periods %}
-        <option value="{{ p }}" {% if period == p %}selected{% endif %}>
-          {% if p == 'today' %}Сегодня
-          {% elif p == 'week' %}Неделя
-          {% elif p == 'month' %}Месяц
-          {% elif p == 'quarter' %}Квартал
-          {% elif p == 'year' %}Год
-          {% elif p == 'last_30' %}Последние 30 дней
-          {% elif p == 'custom' %}Произвольный период
-          {% else %}{{ p }}{% endif %}
-        </option>
-        {% endfor %}
-      </select>
+      <label class="form-label">С даты</label>
+      <input type="date" name="date_from" value="{{ date_from }}" required>
     </div>
+    <div class="form-group">
+      <label class="form-label">По дату</label>
+      <input type="date" name="date_to" value="{{ date_to }}" required>
+    </div>
+  </div>
+  <div class="form-row">
     <div class="form-group">
       <label class="form-label">Город</label>
       <select name="city_id">
@@ -43,32 +36,22 @@
         {% endfor %}
       </select>
     </div>
-  </div>
-  <div class="form-row" id="custom-dates" {% if period != 'custom' %}style="display:none;"{% endif %}>
     <div class="form-group">
-      <label class="form-label">С даты</label>
-      <input type="date" name="date_from" value="{{ date_from }}">
-    </div>
-    <div class="form-group">
-      <label class="form-label">По дату</label>
-      <input type="date" name="date_to" value="{{ date_to }}">
+      <label class="form-label">Быстрый выбор</label>
+      <div class="row" style="flex-wrap: wrap; gap: 6px;">
+        <button type="submit" name="preset" value="today" class="btn btn-sm btn-ghost">Сегодня</button>
+        <button type="submit" name="preset" value="week" class="btn btn-sm btn-ghost">Неделя</button>
+        <button type="submit" name="preset" value="month" class="btn btn-sm btn-ghost">Месяц</button>
+        <button type="submit" name="preset" value="quarter" class="btn btn-sm btn-ghost">Квартал</button>
+        <button type="submit" name="preset" value="year" class="btn btn-sm btn-ghost">Год</button>
+      </div>
     </div>
   </div>
+  <input type="hidden" name="period" value="custom">
   <div class="form-actions">
     <button type="submit" class="btn">Применить</button>
   </div>
 </form>
-
-<script>
-(function () {
-  var sel = document.getElementById('period-select');
-  var custom = document.getElementById('custom-dates');
-  if (!sel || !custom) return;
-  function sync() { custom.style.display = sel.value === 'custom' ? '' : 'none'; }
-  sel.addEventListener('change', sync);
-  sync();
-})();
-</script>
 
 <div class="grid-cards">
   <div class="kpi"><div class="kpi-label">Заявок всего</div><div class="kpi-value" data-stat="branch-total">{{ dashboard.cards.total }}</div><div class="kpi-delta">{{ dashboard.cards.in_progress }} в работе</div></div>
