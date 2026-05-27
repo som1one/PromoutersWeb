@@ -169,6 +169,12 @@ jobs:
             cd "$APP_DIR"
             "$APP_DIR/.venv/bin/python" -m alembic upgrade head
 
+            echo ">> [3.5/7] Seed демо-данных (идемпотентно)"
+            cd "$APP_DIR"
+            PYTHONPATH=src "$APP_DIR/.venv/bin/python" scripts/seed_demo_data.py || {
+              echo "[WARN] seed_demo_data.py упал — продолжаем без демо-данных"
+            }
+
             echo ">> [4/7] Frontend build"
             cd "$APP_DIR/frontend"
             npm install --no-audit --no-fund --prefer-offline
@@ -183,17 +189,112 @@ jobs:
             sleep 3
             systemctl is-active "$SERVICE_NAME"
 
-            echo ">> [7/7] Reload nginx and smoke check"
+            echo ">> [7/7] Reload nginx"
             install -m 644 "$APP_DIR/deploy/nginx-suupr.conf" /etc/nginx/sites-available/suupr
             ln -sf /etc/nginx/sites-available/suupr /etc/nginx/sites-enabled/suupr
             rm -f /etc/nginx/sites-enabled/default
             nginx -t
             systemctl reload nginx
-            sleep 1
-            curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health || true
-            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n'  http://127.0.0.1/ || true
+            sleep 2
 
+            echo ""
+            echo "=========================================="
+            echo "  HEALTH CHECKS"
+            echo "=========================================="
+
+            FAILED=0
+            check() {
+              local label="$1" expected="$2" url="$3"
+              local code
+              code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || echo "000")
+              if [ "$code" = "$expected" ]; then
+                echo "  [OK]   $label  $code  $url"
+              else
+                echo "  [FAIL] $label  got=$code  expected=$expected  $url"
+                FAILED=$((FAILED+1))
+              fi
+            }
+
+            echo ">> Системные сервисы"
+            for svc in postgresql nginx "$SERVICE_NAME"; do
+              if systemctl is-active --quiet "$svc"; then
+                echo "  [OK]   $svc active"
+              else
+                echo "  [FAIL] $svc not active"
+                systemctl status "$svc" --no-pager -l | head -20 || true
+                FAILED=$((FAILED+1))
+              fi
+            done
+
+            echo ">> Порты слушают"
+            for port in 80 8000 5432; do
+              if ss -ltn "( sport = :$port )" | grep -q LISTEN; then
+                echo "  [OK]   port $port listening"
+              else
+                echo "  [FAIL] port $port not listening"
+                FAILED=$((FAILED+1))
+              fi
+            done
+
+            echo ">> Подключение к БД и наличие демо-пользователя"
+            if sudo -u postgres psql -d "$DB_NAME" -tAc "SELECT 1 FROM users WHERE phone='+79990000001'" 2>/dev/null | grep -q 1; then
+              echo "  [OK]   demo user +79990000001 в БД"
+            else
+              echo "  [WARN] demo user +79990000001 не найден (возможно seed не отработал)"
+            fi
+            DEMO_COUNT=$(sudo -u postgres psql -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM users" 2>/dev/null | tr -d ' ' || echo "?")
+            echo "  [info] users в БД: $DEMO_COUNT"
+
+            echo ">> HTTP-эндпоинты через 127.0.0.1 (uvicorn :8000)"
+            check "API health"     200 "http://127.0.0.1:8000/api/v1/health"
+            check "OpenAPI"        200 "http://127.0.0.1:8000/openapi.json"
+            check "Admin login"    200 "http://127.0.0.1:8000/admin/login"
+
+            echo ">> HTTP-эндпоинты через nginx (:80)"
+            check "/ (SPA)"        200 "http://127.0.0.1/"
+            check "/api/v1/health" 200 "http://127.0.0.1/api/v1/health"
+            check "/admin/login"   200 "http://127.0.0.1/admin/login"
+            check "/openapi.json"  200 "http://127.0.0.1/openapi.json"
+
+            echo ">> Логин под демо-owner"
+            COOKIE_JAR=$(mktemp)
+            LOGIN_CODE=$(curl -s -o /dev/null -w '%{http_code}' -c "$COOKIE_JAR" \
+              -d "phone=%2B79990000001&password=demo12345&next=" \
+              http://127.0.0.1/admin/login || echo "000")
+            if [ "$LOGIN_CODE" = "200" ] || [ "$LOGIN_CODE" = "302" ] || [ "$LOGIN_CODE" = "303" ]; then
+              echo "  [OK]   POST /admin/login  $LOGIN_CODE"
+              # под cookie должны открываться owner-страницы
+              for path in /admin/ /admin/users /admin/routes; do
+                CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" "http://127.0.0.1$path" || echo "000")
+                if [ "$CODE" = "200" ]; then
+                  echo "  [OK]   GET $path under owner cookie  $CODE"
+                else
+                  echo "  [WARN] GET $path under owner cookie  $CODE (ожидался 200)"
+                fi
+              done
+            else
+              echo "  [WARN] Не удалось авторизоваться под демо-owner (HTTP $LOGIN_CODE) — возможно seed не выполнен"
+            fi
+            rm -f "$COOKIE_JAR"
+
+            echo ">> Frontend dist собран?"
+            if [ -f "$APP_DIR/frontend/dist/index.html" ]; then
+              echo "  [OK]   frontend/dist/index.html существует"
+            else
+              echo "  [FAIL] frontend/dist/index.html отсутствует"
+              FAILED=$((FAILED+1))
+            fi
+
+            echo ""
             echo "--- last 40 lines of $SERVICE_NAME log ---"
             journalctl -u "$SERVICE_NAME" -n 40 --no-pager || true
 
-            echo "=== DEPLOY OK ==="
+            echo ""
+            echo "=========================================="
+            if [ "$FAILED" -gt 0 ]; then
+              echo "  DEPLOY FAILED: $FAILED проверок упало"
+              echo "=========================================="
+              exit 1
+            fi
+            echo "  DEPLOY OK — все проверки прошли"
+            echo "=========================================="
