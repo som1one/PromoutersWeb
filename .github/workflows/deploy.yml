@@ -120,42 +120,54 @@ jobs:
             ADMIN_HTML=$(curl -sS http://127.0.0.1/admin/login | head -c 200)
             echo "ADMIN_HEAD: $ADMIN_HTML"
 
-            echo ">> [diag] Try login flow programmatically"
+            echo ">> [diag] End-to-end smoke ring across roles"
             COOKIE_JAR=$(mktemp)
-            LOGIN_HEADERS=$(curl -sS -i -c "$COOKIE_JAR" \
+
+            # Owner login + базовые страницы
+            curl -sS -i -c "$COOKIE_JAR" \
               -d "phone=%2B79990000001&password=demo12345&next=" \
-              http://127.0.0.1/admin/login | head -25)
-            echo "--- /admin/login response headers ---"
-            echo "$LOGIN_HEADERS"
-            echo "--- cookies after login ---"
-            cat "$COOKIE_JAR" | grep -v '^#' || true
-            echo "--- GET /admin/ with cookies ---"
-            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_home.html \
-              -w 'HOME=%{http_code} redirect=%{redirect_url}\n' \
-              http://127.0.0.1/admin/
-            echo "--- /admin/ first 200 chars ---"
-            head -c 200 /tmp/admin_home.html
-            echo ""
-            echo "--- GET /admin/stats with cookies ---"
-            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_stats.html \
-              -w 'STATS=%{http_code}\n' \
-              http://127.0.0.1/admin/stats
-            head -c 200 /tmp/admin_stats.html
-            echo ""
-            echo "--- GET /admin/users with cookies (owner only) ---"
-            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_users.html \
-              -w 'USERS=%{http_code}\n' \
-              http://127.0.0.1/admin/users
-            head -c 200 /tmp/admin_users.html
-            echo ""
-            echo "--- GET /admin/promoters with cookies ---"
-            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_promoters.html \
-              -w 'PROMOTERS=%{http_code}\n' \
-              http://127.0.0.1/admin/promoters
-            head -c 200 /tmp/admin_promoters.html
-            echo ""
-            echo "--- last 60 lines of suupr-backend log ---"
-            journalctl -u suupr-backend -n 60 --no-pager || tail -60 /var/log/suupr-backend.err.log || true
-            rm -f "$COOKIE_JAR" /tmp/admin_home.html /tmp/admin_stats.html /tmp/admin_users.html /tmp/admin_promoters.html
+              http://127.0.0.1/admin/login | head -10
+            echo "--- cookies ---"; cat "$COOKIE_JAR" | grep -v '^#' || true
+
+            # Базовые страницы под owner
+            for path in /admin/ /admin/stats /admin/users /admin/promoters /admin/routes /admin/payouts /admin/expense-plans /admin/master-requests /admin/notifications /admin/audit /admin/cash; do
+              CODE=$(curl -sS -b "$COOKIE_JAR" -o /tmp/owner_$(echo "$path" | tr '/' '_').html -w '%{http_code}' "http://127.0.0.1$path")
+              echo "owner GET $path -> $CODE"
+            done
+
+            # Branch manager
+            BJAR=$(mktemp)
+            curl -sS -i -c "$BJAR" \
+              -d "phone=%2B79990000002&password=demo12345&next=" \
+              http://127.0.0.1/admin/login | head -3
+            for path in /admin/ /admin/stats /admin/promoters /admin/routes /admin/payouts /admin/expense-plans /admin/master-requests; do
+              CODE=$(curl -sS -b "$BJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
+              echo "branch_manager GET $path -> $CODE"
+            done
+
+            # Master
+            MJAR=$(mktemp)
+            curl -sS -i -c "$MJAR" \
+              -d "phone=%2B79990000007&password=demo12345&next=" \
+              http://127.0.0.1/admin/login | head -3
+            for path in /admin/ /admin/master-requests; do
+              CODE=$(curl -sS -b "$MJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
+              echo "master GET $path -> $CODE"
+            done
+
+            # Dispatcher
+            DJAR=$(mktemp)
+            curl -sS -i -c "$DJAR" \
+              -d "phone=%2B79990000008&password=demo12345&next=" \
+              http://127.0.0.1/admin/login | head -3
+            for path in /admin/ /admin/master-requests /admin/orders; do
+              CODE=$(curl -sS -b "$DJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
+              echo "dispatcher GET $path -> $CODE"
+            done
+
+            echo "--- last 80 lines of suupr-backend log ---"
+            journalctl -u suupr-backend -n 80 --no-pager || tail -80 /var/log/suupr-backend.err.log || true
+
+            rm -f "$COOKIE_JAR" "$BJAR" "$MJAR" "$DJAR" /tmp/owner_*.html
 
             echo "=== DEPLOY OK ==="
