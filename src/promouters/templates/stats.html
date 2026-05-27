@@ -38,12 +38,12 @@
     </div>
     <div class="form-group">
       <label class="form-label">Быстрый выбор</label>
-      <div class="row" style="flex-wrap: wrap; gap: 6px;">
-        <button type="submit" name="preset" value="today" class="btn btn-sm btn-ghost">Сегодня</button>
-        <button type="submit" name="preset" value="week" class="btn btn-sm btn-ghost">Неделя</button>
-        <button type="submit" name="preset" value="month" class="btn btn-sm btn-ghost">Месяц</button>
-        <button type="submit" name="preset" value="quarter" class="btn btn-sm btn-ghost">Квартал</button>
-        <button type="submit" name="preset" value="year" class="btn btn-sm btn-ghost">Год</button>
+      <div class="chip-row">
+        <button type="submit" name="preset" value="today"   class="chip {% if period == 'today' %}is-active{% endif %}">Сегодня</button>
+        <button type="submit" name="preset" value="week"    class="chip {% if period == 'week' %}is-active{% endif %}">Неделя</button>
+        <button type="submit" name="preset" value="month"   class="chip {% if period == 'month' %}is-active{% endif %}">Месяц</button>
+        <button type="submit" name="preset" value="quarter" class="chip {% if period == 'quarter' %}is-active{% endif %}">Квартал</button>
+        <button type="submit" name="preset" value="year"    class="chip {% if period == 'year' %}is-active{% endif %}">Год</button>
       </div>
     </div>
   </div>

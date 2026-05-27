@@ -577,3 +577,48 @@ table.data-table tbody tr:hover { background: rgba(148,163,184,0.06); }
   line-height: 18px;
   text-align: center;
 }
+
+
+/* =========================================================================
+   Chip group (preset-кнопки в фильтрах: «Сегодня / Неделя / Месяц / ...»)
+   ========================================================================= */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.chip {
+  appearance: none;
+  border: 1px solid rgba(148,163,184,0.28);
+  background: rgba(148,163,184,0.06);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  line-height: 1;
+  min-height: 36px;
+}
+.chip:hover {
+  background: rgba(16,185,129,0.10);
+  border-color: rgba(16,185,129,0.35);
+  color: #34d399;
+}
+.chip.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: #34d399;
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (max-width: 768px) {
+  .chip { min-height: 40px; padding: 10px 14px; font-size: 14px; }
+}
