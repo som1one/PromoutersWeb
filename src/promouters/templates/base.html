@@ -15,7 +15,10 @@
         <span></span><span></span><span></span>
       </button>
       <div class="topbar-title">СУУПР</div>
-      <a href="/admin/notifications" class="topbar-bell" aria-label="Уведомления">🔔</a>
+      <a href="/admin/notifications" class="topbar-bell" aria-label="Уведомления">
+        🔔
+        {% if unread_count and unread_count > 0 %}<span class="badge-counter">{{ unread_count }}</span>{% endif %}
+      </a>
     </header>
 
     <aside class="sidebar" data-sidebar>
@@ -99,7 +102,10 @@
       {# Notifications: everyone #}
       <div class="nav-group">
         <div class="nav-group-title">Прочее</div>
-        <a href="/admin/notifications" class="nav-link {% if active_page == 'notifications' %}active{% endif %}">🔔 Уведомления</a>
+        <a href="/admin/notifications" class="nav-link {% if active_page == 'notifications' %}active{% endif %}">
+          🔔 Уведомления
+          {% if unread_count and unread_count > 0 %}<span class="badge badge-info" style="margin-left:auto;">{{ unread_count }}</span>{% endif %}
+        </a>
       </div>
 
       <div class="sidebar-footer">

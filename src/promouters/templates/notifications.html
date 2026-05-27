@@ -4,40 +4,49 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Уведомления</h1>
-    <p class="page-subtitle">Всего: {{ notifications|length }}</p>
+    <p class="page-subtitle">Всего: {{ notifications|length }} · непрочитано: {{ unread_count or 0 }}</p>
   </div>
 </div>
 
 <div class="card card-flat">
-  {% if notifications %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Время</th>
-        <th>Тип</th>
-        <th>Сообщение</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for n in notifications %}
-      <tr style="{% if n.status.value != 'read' %}font-weight: 600;{% endif %}">
-        <td>{{ n.created_at.strftime('%d.%m %H:%M') if n.created_at else '—' }}</td>
-        <td><span class="badge">{{ n.channel.value if n.channel else '—' }}</span></td>
-        <td>{{ n.message or n.title or '—' }}</td>
-        <td><span class="badge {{ 'badge-success' if n.status.value == 'read' else 'badge-info' }}">{{ n.status.value if n.status else '—' }}</span></td>
-        <td>
-          {% if n.status.value != 'read' %}
-          <form method="post" action="/admin/notifications/{{ n.id }}/read" style="margin: 0;">
-            <button class="btn btn-sm">Прочитано</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<div class="empty-state">Нет уведомлений</div>{% endif %}
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Сообщение</th>
+          <th>Связанное</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for n in notifications %}
+        {% set payload = n.payload or {} %}
+        {% set link = '' %}
+        {% if payload.get('expense_plan_id') %}{% set link = '/admin/expense-plans/' ~ payload['expense_plan_id'] %}
+        {% elif payload.get('route_id') %}{% set link = '/admin/routes/' ~ payload['route_id'] %}
+        {% elif payload.get('master_request_id') %}{% set link = '/admin/master-requests/' ~ payload['master_request_id'] %}
+        {% elif payload.get('user_id') %}{% set link = '/admin/users/' ~ payload['user_id'] %}
+        {% endif %}
+        <tr style="{% if n.status.value != 'read' %}font-weight: 600;{% endif %}">
+          <td data-label="Время">{{ n.created_at.strftime('%d.%m %H:%M') if n.created_at else '—' }}</td>
+          <td data-label="Сообщение"><b>{{ n.title }}</b><br><span class="muted">{{ n.body }}</span></td>
+          <td data-label="Связанное">{% if link %}<a href="{{ link }}">Открыть</a>{% else %}—{% endif %}</td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if n.status.value == 'read' else 'badge-info' }}">{{ n.status.value if n.status else '—' }}</span></td>
+          <td data-label="">
+            {% if n.status.value != 'read' %}
+            <form method="post" action="/admin/notifications/{{ n.id }}/read" style="margin: 0;">
+              <button class="btn btn-sm">Прочитано</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty-state">Нет уведомлений</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

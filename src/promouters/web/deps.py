@@ -128,8 +128,28 @@ def render(
 
     Templates expect ``user`` (current logged-in User or None) and ``request`` to
     be available in the rendering context.
+
+    Также вычисляет ``unread_count`` для бейджа уведомлений, если есть user и не
+    задан явно в контексте.
     """
-    payload: dict = {"request": request, "user": user}
+    payload: dict = {"request": request, "user": user, "unread_count": 0}
+    if user is not None and "unread_count" not in context:
+        try:
+            from sqlalchemy import func, select  # local import to avoid cycle
+            from promouters.db.session import SessionLocal
+            from promouters.models.enums import NotificationStatus
+            from promouters.models.operations import Notification
+
+            with SessionLocal() as session:
+                count = session.scalar(
+                    select(func.count(Notification.id)).where(
+                        Notification.user_id == user.id,
+                        Notification.status != NotificationStatus.READ,
+                    )
+                )
+                payload["unread_count"] = int(count or 0)
+        except Exception:  # noqa: BLE001
+            payload["unread_count"] = 0
     payload.update(context)
     return templates.TemplateResponse(template_name, payload)
 
