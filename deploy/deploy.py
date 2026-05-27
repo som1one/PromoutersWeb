@@ -329,17 +329,17 @@ echo "HEAD: $(git rev-parse --short HEAD)"
     ssh.run(sync_script)
 
     print("\n>> [2/7] Python venv + зависимости")
-    # Если .venv существует, но не работает — пересоздать
+    # Если .venv существует, но битый (нет работающего pip) — пересоздать
     ssh.run(
-        f"if [ -d {APP_DIR}/.venv ] && ! {APP_DIR}/.venv/bin/python --version >/dev/null 2>&1; then "
-        f"  rm -rf {APP_DIR}/.venv; "
+        f"if [ -d {APP_DIR}/.venv ] && ! {APP_DIR}/.venv/bin/python -m pip --version >/dev/null 2>&1; then "
+        f"  echo 'Битый .venv — удаляем'; rm -rf {APP_DIR}/.venv; "
         f"fi"
     )
     ssh.run(
         f"[ -d {APP_DIR}/.venv ] || python3 -m venv {APP_DIR}/.venv"
     )
-    ssh.run(f"{APP_DIR}/.venv/bin/pip install --upgrade pip --quiet")
-    ssh.run(f"{APP_DIR}/.venv/bin/pip install -e {APP_DIR} --quiet")
+    ssh.run(f"{APP_DIR}/.venv/bin/python -m pip install --upgrade pip --quiet")
+    ssh.run(f"{APP_DIR}/.venv/bin/python -m pip install -e {APP_DIR} --quiet")
 
     print("\n>> [3/7] Миграции БД (alembic upgrade head)")
     ssh.run(f"cd {APP_DIR} && {APP_DIR}/.venv/bin/python -m alembic upgrade head")

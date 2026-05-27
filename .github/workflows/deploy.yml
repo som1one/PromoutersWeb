@@ -154,16 +154,17 @@ jobs:
             systemctl enable "$SERVICE_NAME"
 
             echo ">> [2/7] Python venv + deps"
-            # Если .venv существует, но повреждён (нет рабочего bin/python) — пересоздать.
-            if [ -d "$APP_DIR/.venv" ] && ! "$APP_DIR/.venv/bin/python" --version >/dev/null 2>&1; then
-              echo "Поврежденный .venv найден — удаляем"
+            # Если .venv существует, но битый (нет pip — например ensurepip упал в прошлый раз) — пересоздать.
+            if [ -d "$APP_DIR/.venv" ] && ! "$APP_DIR/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
+              echo "Битый .venv (нет работающего pip) — удаляем"
               rm -rf "$APP_DIR/.venv"
             fi
             if [ ! -d "$APP_DIR/.venv" ]; then
               python3 -m venv "$APP_DIR/.venv"
             fi
-            "$APP_DIR/.venv/bin/pip" install --upgrade pip --quiet
-            "$APP_DIR/.venv/bin/pip" install -e "$APP_DIR" --quiet
+            # Используем python -m pip — работает даже если bin/pip отсутствует
+            "$APP_DIR/.venv/bin/python" -m pip install --upgrade pip --quiet
+            "$APP_DIR/.venv/bin/python" -m pip install -e "$APP_DIR" --quiet
 
             echo ">> [3/7] Database migrations"
             cd "$APP_DIR"
