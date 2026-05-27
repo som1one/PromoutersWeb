@@ -81,6 +81,7 @@
       {% if role in ['owner','branch_manager','ad_director','director'] %}
       <div class="nav-group">
         <div class="nav-group-title">Промоутеры</div>
+        <a href="/admin/promoters" class="nav-link {% if active_page == 'promoters' %}active{% endif %}">🧑‍🤝‍🧑 Промоутеры</a>
         <a href="/admin/routes" class="nav-link {% if active_page == 'routes' %}active{% endif %}">🗺 Маршруты</a>
         <a href="/admin/payouts" class="nav-link {% if active_page == 'payouts' %}active{% endif %}">💰 Выплаты</a>
         <a href="/admin/expense-plans" class="nav-link {% if active_page == 'expense_plans' %}active{% endif %}">📒 Бюджеты</a>

@@ -23,6 +23,7 @@ from promouters.web import (
     notifications as notifications_router,
     orders as orders_router,
     payouts as payouts_router,
+    promoters as promoters_router,
     routes_promoter as routes_promoter_router,
     sd as sd_router,
     stats as stats_router,
@@ -37,6 +38,7 @@ web_router.include_router(auth_router.router)
 web_router.include_router(dashboard_router.router)
 web_router.include_router(orders_router.router, prefix="/orders")
 web_router.include_router(masters_router.router, prefix="/masters")
+web_router.include_router(promoters_router.router, prefix="/promoters")
 web_router.include_router(cities_router.router, prefix="/cities")
 web_router.include_router(commission_router.router, prefix="/commission")
 web_router.include_router(cash_router.router, prefix="/cash")

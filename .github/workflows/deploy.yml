@@ -148,8 +148,14 @@ jobs:
               http://127.0.0.1/admin/users
             head -c 200 /tmp/admin_users.html
             echo ""
+            echo "--- GET /admin/promoters with cookies ---"
+            curl -sS -b "$COOKIE_JAR" -o /tmp/admin_promoters.html \
+              -w 'PROMOTERS=%{http_code}\n' \
+              http://127.0.0.1/admin/promoters
+            head -c 200 /tmp/admin_promoters.html
+            echo ""
             echo "--- last 60 lines of suupr-backend log ---"
             journalctl -u suupr-backend -n 60 --no-pager || tail -60 /var/log/suupr-backend.err.log || true
-            rm -f "$COOKIE_JAR" /tmp/admin_home.html /tmp/admin_stats.html /tmp/admin_users.html
+            rm -f "$COOKIE_JAR" /tmp/admin_home.html /tmp/admin_stats.html /tmp/admin_users.html /tmp/admin_promoters.html
 
             echo "=== DEPLOY OK ==="

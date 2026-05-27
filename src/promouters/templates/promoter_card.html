@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block page_title %}{{ promoter.first_name }} {{ promoter.last_name }} — Промоутер{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ promoter.first_name }} {{ promoter.last_name }}</h1>
+    <p class="page-subtitle">Промоутер · {{ promoter.branch.name if promoter.branch else '—' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/promoters" class="btn btn-ghost">← К списку</a>
+    {% if user.role and user.role.code == 'owner' %}
+    <a href="/admin/users/{{ promoter.id }}" class="btn btn-secondary">Изменить</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Контакты</h3></div>
+  <div class="row">
+    <div class="col"><div class="muted">Телефон</div><div>{{ promoter.phone or '—' }}</div></div>
+    <div class="col"><div class="muted">Email</div><div>{{ promoter.email or '—' }}</div></div>
+    <div class="col"><div class="muted">Username</div><div>@{{ promoter.username }}</div></div>
+    <div class="col"><div class="muted">Статус</div><div>{{ promoter.status.value }}</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Маршруты и выплаты</h3>
+    <p class="card-desc">Перейти к маршрутам и выплатам этого промоутера</p>
+  </div>
+  <div class="row">
+    <a class="btn btn-secondary" href="/admin/routes?promoter_id={{ promoter.id }}">🗺 Маршруты</a>
+    <a class="btn btn-secondary" href="/admin/payouts?promoter_id={{ promoter.id }}">💰 Выплаты</a>
+  </div>
+</div>
+{% endblock %}

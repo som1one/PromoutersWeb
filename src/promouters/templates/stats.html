@@ -4,19 +4,43 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Статистика</h1>
-    <p class="page-subtitle">Период: {{ filter.date_from or '—' }} … {{ filter.date_to or '—' }}</p>
+    <p class="page-subtitle">
+      {% if dashboard.meta.date_from %}
+        {{ dashboard.meta.date_from.strftime('%d.%m.%Y') }} … {{ dashboard.meta.date_to.strftime('%d.%m.%Y') }} · {{ dashboard.meta.period_days }} дн.
+      {% else %}
+        Нет данных за период
+      {% endif %}
+      · {{ dashboard.meta.city_name or 'Все города' }}
+    </p>
   </div>
 </div>
 
 <form method="get" action="/admin/stats" class="card card-flat">
   <div class="form-row">
     <div class="form-group">
-      <label class="form-label">С даты</label>
-      <input type="date" name="date_from" value="{{ filter.date_from or '' }}">
+      <label class="form-label">Период</label>
+      <select name="period">
+        {% for p in available_periods %}
+        <option value="{{ p }}" {% if period == p %}selected{% endif %}>
+          {% if p == 'today' %}Сегодня
+          {% elif p == 'week' %}Неделя
+          {% elif p == 'month' %}Месяц
+          {% elif p == 'quarter' %}Квартал
+          {% elif p == 'year' %}Год
+          {% elif p == 'last_30' %}Последние 30 дней
+          {% else %}{{ p }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
     </div>
     <div class="form-group">
-      <label class="form-label">По дату</label>
-      <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
+      <label class="form-label">Город</label>
+      <select name="city_id">
+        <option value="">Все города</option>
+        {% for c in available_cities %}
+        <option value="{{ c.id }}" {% if filter.city_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
     </div>
   </div>
   <div class="form-actions">
@@ -25,9 +49,83 @@
 </form>
 
 <div class="grid-cards">
-  <div class="kpi"><div class="kpi-label">Заявок</div><div class="kpi-value">{{ stats.orders_count or 0 }}</div></div>
-  <div class="kpi"><div class="kpi-label">Выручка</div><div class="kpi-value">{{ stats.revenue or 0 }} ₽</div></div>
-  <div class="kpi"><div class="kpi-label">Среднее</div><div class="kpi-value">{{ stats.avg_check or 0 }} ₽</div></div>
-  <div class="kpi"><div class="kpi-label">Активных мастеров</div><div class="kpi-value">{{ stats.active_masters or 0 }}</div></div>
+  <div class="kpi"><div class="kpi-label">Заявок всего</div><div class="kpi-value" data-stat="branch-total">{{ dashboard.cards.total }}</div><div class="kpi-delta">{{ dashboard.cards.in_progress }} в работе</div></div>
+  <div class="kpi"><div class="kpi-label">Завершено</div><div class="kpi-value" data-stat="branch-completed">{{ dashboard.cards.completed }}</div><div class="kpi-delta">{{ dashboard.cards.per_day }} в день</div></div>
+  <div class="kpi"><div class="kpi-label">Оборот (нетто)</div><div class="kpi-value" data-stat="branch-revenue">{{ '%.0f'|format(dashboard.cards.net_sum) }} ₽</div><div class="kpi-delta">валовой: {{ '%.0f'|format(dashboard.cards.gross_sum) }} ₽</div></div>
+  <div class="kpi"><div class="kpi-label">Средний чек</div><div class="kpi-value" data-stat="avg-check">{{ '%.0f'|format(dashboard.cards.avg_check) }} ₽</div><div class="kpi-delta">конверсия {{ dashboard.cards.conversion }}%</div></div>
+  <div class="kpi"><div class="kpi-label">Доля компании</div><div class="kpi-value">{{ '%.0f'|format(dashboard.cards.company_share) }} ₽</div><div class="kpi-delta">остаток мастерам</div></div>
+  <div class="kpi"><div class="kpi-label">Касса (ожидает)</div><div class="kpi-value">{{ '%.0f'|format(dashboard.cards.cash_pending_sum) }} ₽</div><div class="kpi-delta">{{ dashboard.cards.cash_pending_count }} заявок</div></div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+  <div class="card-header">
+    <h3 class="card-title">ЗП мастеров по направлениям</h3>
+    <p class="card-desc">Завершённые заявки в выбранном периоде</p>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Направление</th><th>Заявок</th><th>Нетто</th><th>Средний чек</th><th>Отказов</th></tr></thead>
+      <tbody>
+      {% for eq in dashboard.equipment %}
+        <tr>
+          <td data-label="Направление">{{ eq.name }}</td>
+          <td data-label="Заявок">{{ eq.count }}</td>
+          <td data-label="Нетто">{{ '%.0f'|format(eq.net_sum) }} ₽</td>
+          <td data-label="Средний чек">{{ '%.0f'|format(eq.avg_check) }} ₽</td>
+          <td data-label="Отказов">{{ eq.refused }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty-state">Нет завершённых заявок</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Мастера</h3>
+    <p class="card-desc">Топ по выручке за период</p>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Мастер</th><th>Заявок</th><th>Нетто</th><th>Средний чек</th><th>Конверсия</th></tr></thead>
+      <tbody>
+      {% for m in dashboard.masters %}
+        <tr>
+          <td data-label="Мастер">{{ m.name }}</td>
+          <td data-label="Заявок">{{ m.count }}</td>
+          <td data-label="Нетто">{{ '%.0f'|format(m.net_sum) }} ₽</td>
+          <td data-label="Средний чек">{{ '%.0f'|format(m.avg_check) }} ₽</td>
+          <td data-label="Конверсия">{{ m.conversion }}%</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty-state">Нет данных</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">По городам</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Город</th><th>Заявок</th><th>Нетто</th></tr></thead>
+      <tbody>
+      {% for c in dashboard.cities %}
+        <tr>
+          <td data-label="Город">{{ c.name }}</td>
+          <td data-label="Заявок">{{ c.count }}</td>
+          <td data-label="Нетто">{{ '%.0f'|format(c.net_sum) }} ₽</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="empty-state">Нет данных</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

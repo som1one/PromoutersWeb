@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block page_title %}Промоутеры — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Промоутеры</h1>
+    <p class="page-subtitle">{% if promoters %}Всего: {{ promoters|length }}{% else %}Пока никого нет в вашем филиале{% endif %}</p>
+  </div>
+  {% if user.role and user.role.code == 'owner' %}
+  <div class="page-actions">
+    <a href="/admin/users/register" class="btn">➕ Создать промоутера</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card card-flat">
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>ФИО</th>
+          <th>Контакты</th>
+          <th>Филиал</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in promoters %}
+        <tr>
+          <td data-label="ФИО"><b>{{ p.first_name }} {{ p.last_name }}</b><br><span class="muted">@{{ p.username }}</span></td>
+          <td data-label="Контакты">{{ p.phone or '—' }}<br><span class="muted">{{ p.email or '—' }}</span></td>
+          <td data-label="Филиал">{{ p.branch.name if p.branch else '—' }}</td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if p.status.value == 'active' else 'badge-warning' }}">{{ p.status.value }}</span></td>
+          <td data-label=""><a href="/admin/promoters/{{ p.id }}" class="btn btn-sm btn-secondary">Карточка</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty-state">Нет промоутеров</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
