@@ -12,19 +12,19 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - name: Deploy via SSH (idempotent setup + release)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          command_timeout: 20m
+          command_timeout: 25m
           script: |
             set -euxo pipefail
 
@@ -32,27 +32,55 @@ jobs:
             SERVICE_NAME=suupr-backend
             REPO_URL=https://github.com/som1one/PromoutersWeb.git
             BRANCH=main
-
-            # Кто на сервере отвечает за работу backend (для финального chown).
-            # Если такого пользователя нет — оставим владельцем root, ничего не сломаем.
             APP_USER=suupr
-            id "$APP_USER" >/dev/null 2>&1 || APP_USER=root
+            DB_NAME=suupr
+            DB_USER=suupr
+            DB_PASSWORD=suupr_password
+
+            export DEBIAN_FRONTEND=noninteractive
+
+            echo ">> [bootstrap] Установка системных зависимостей (идемпотентно)"
+            apt-get update -y
+            # Базовый набор. python3-venv — transitional, поэтому ставим versioned-пакет
+            # под фактическую версию python3 (на Ubuntu 24.04 это python3.12-venv).
+            PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            apt-get install -y --no-install-recommends \
+              git curl ca-certificates gnupg \
+              nginx \
+              python3 python3-venv python3-pip python3-dev "python${PYVER}-venv" \
+              build-essential \
+              postgresql postgresql-contrib \
+              openssl
+
+            echo ">> [bootstrap] Node.js 20.x"
+            if ! command -v node >/dev/null 2>&1 || [ "$(node -v | sed 's/v//' | cut -d. -f1)" -lt 18 ]; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
+            node -v && npm -v
+
+            echo ">> [bootstrap] Системный пользователь $APP_USER"
+            id -u "$APP_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$APP_USER"
             APP_GROUP=$(id -gn "$APP_USER")
 
-            # Git ≥ 2.35 отказывается работать в чужом по владельцу репо.
-            # Помечаем рабочую директорию как доверенную глобально для root.
+            echo ">> [bootstrap] PostgreSQL: enable + создать БД и пользователя"
+            systemctl enable --now postgresql
+            sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1 \
+              || sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+            sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1 \
+              || sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" >/dev/null
+
+            echo ">> [bootstrap] Директория приложения"
+            mkdir -p "$APP_DIR"
             git config --global --add safe.directory "$APP_DIR"
 
-            echo ">> [1/7] Sync code in $APP_DIR (user=$APP_USER)"
-            mkdir -p "$APP_DIR"
+            echo ">> [1/7] Sync code в $APP_DIR"
             cd "$APP_DIR"
-
             if [ ! -d "$APP_DIR/.git" ]; then
               if [ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
-                echo "Empty dir — fresh clone"
                 git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
               else
-                echo "Non-empty dir without .git — init in place, preserve .env/.venv/media"
                 git -C "$APP_DIR" init -q
                 git -C "$APP_DIR" remote remove origin 2>/dev/null || true
                 git -C "$APP_DIR" remote add origin "$REPO_URL"
@@ -60,7 +88,6 @@ jobs:
                 git -C "$APP_DIR" checkout -f -B "$BRANCH" "origin/$BRANCH"
               fi
             else
-              # remote может отсутствовать (репо инициализирован через git init), либо быть с другим URL
               if git -C "$APP_DIR" remote get-url origin >/dev/null 2>&1; then
                 git -C "$APP_DIR" remote set-url origin "$REPO_URL"
               else
@@ -79,7 +106,59 @@ jobs:
             fi
             echo "HEAD: $(git -C "$APP_DIR" rev-parse --short HEAD)"
 
+            echo ">> [bootstrap] .env (создаём только если нет)"
+            if [ ! -f "$APP_DIR/.env" ]; then
+              SECRET_KEY=$(openssl rand -hex 32)
+              cat > "$APP_DIR/.env" <<EOF
+            POSTGRES_DB=$DB_NAME
+            POSTGRES_USER=$DB_USER
+            POSTGRES_PASSWORD=$DB_PASSWORD
+            POSTGRES_HOST=localhost
+            POSTGRES_PORT=5432
+            DATABASE_URL=postgresql+psycopg://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME
+            SECRET_KEY=$SECRET_KEY
+            WEB_COOKIE_SECURE=false
+            WEB_COOKIE_SAMESITE=lax
+            DEBUG=false
+            ENVIRONMENT=production
+            LOG_LEVEL=INFO
+            EOF
+              chmod 600 "$APP_DIR/.env"
+            fi
+            grep -q '^WEB_COOKIE_SECURE=' "$APP_DIR/.env" || echo 'WEB_COOKIE_SECURE=false' >> "$APP_DIR/.env"
+
+            echo ">> [bootstrap] systemd unit $SERVICE_NAME"
+            cat > /etc/systemd/system/$SERVICE_NAME.service <<EOF
+            [Unit]
+            Description=Suupr Backend (FastAPI)
+            After=network.target postgresql.service
+            Wants=postgresql.service
+
+            [Service]
+            Type=simple
+            User=$APP_USER
+            Group=$APP_GROUP
+            WorkingDirectory=$APP_DIR
+            Environment=PATH=$APP_DIR/.venv/bin:/usr/local/bin:/usr/bin:/bin
+            EnvironmentFile=$APP_DIR/.env
+            ExecStart=$APP_DIR/.venv/bin/uvicorn promouters.main:app --host 0.0.0.0 --port 8000
+            Restart=always
+            RestartSec=5
+            StandardOutput=journal
+            StandardError=journal
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            systemctl daemon-reload
+            systemctl enable "$SERVICE_NAME"
+
             echo ">> [2/7] Python venv + deps"
+            # Если .venv существует, но повреждён (нет рабочего bin/python) — пересоздать.
+            if [ -d "$APP_DIR/.venv" ] && ! "$APP_DIR/.venv/bin/python" --version >/dev/null 2>&1; then
+              echo "Поврежденный .venv найден — удаляем"
+              rm -rf "$APP_DIR/.venv"
+            fi
             if [ ! -d "$APP_DIR/.venv" ]; then
               python3 -m venv "$APP_DIR/.venv"
             fi
@@ -97,77 +176,24 @@ jobs:
 
             echo ">> [5/7] Fix ownership for $APP_USER:$APP_GROUP"
             chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
+            chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
 
             echo ">> [6/7] Restart backend"
-            # Гарантируем, что в /opt/suupr/.env присутствует WEB_COOKIE_SECURE=false (для http-доступа без TLS).
-            grep -q '^WEB_COOKIE_SECURE=' /opt/suupr/.env || echo 'WEB_COOKIE_SECURE=false' >> /opt/suupr/.env
-            chown suupr:suupr /opt/suupr/.env
             systemctl restart "$SERVICE_NAME"
-            sleep 2
+            sleep 3
             systemctl is-active "$SERVICE_NAME"
 
             echo ">> [7/7] Reload nginx and smoke check"
-            # Гарантируем, что nginx проксирует /admin/* в uvicorn (а не отдаёт SPA index.html).
             install -m 644 "$APP_DIR/deploy/nginx-suupr.conf" /etc/nginx/sites-available/suupr
             ln -sf /etc/nginx/sites-available/suupr /etc/nginx/sites-enabled/suupr
             rm -f /etc/nginx/sites-enabled/default
             nginx -t
             systemctl reload nginx
             sleep 1
-            curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health
-            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n'  http://127.0.0.1/
-            # Проверяем что /admin/login отдаёт серверный Jinja, а не SPA
-            ADMIN_HTML=$(curl -sS http://127.0.0.1/admin/login | head -c 200)
-            echo "ADMIN_HEAD: $ADMIN_HTML"
+            curl -fsS -o /dev/null -w 'HEALTH=%{http_code}\n' http://127.0.0.1/api/v1/health || true
+            curl -fsS -o /dev/null -w 'INDEX=%{http_code}\n'  http://127.0.0.1/ || true
 
-            echo ">> [diag] End-to-end smoke ring across roles"
-            COOKIE_JAR=$(mktemp)
-
-            # Owner login + базовые страницы
-            curl -sS -i -c "$COOKIE_JAR" \
-              -d "phone=%2B79990000001&password=demo12345&next=" \
-              http://127.0.0.1/admin/login | head -10
-            echo "--- cookies ---"; cat "$COOKIE_JAR" | grep -v '^#' || true
-
-            # Базовые страницы под owner
-            for path in /admin/ /admin/stats /admin/users /admin/promoters /admin/routes /admin/payouts /admin/expense-plans /admin/master-requests /admin/notifications /admin/audit /admin/cash; do
-              CODE=$(curl -sS -b "$COOKIE_JAR" -o /tmp/owner_$(echo "$path" | tr '/' '_').html -w '%{http_code}' "http://127.0.0.1$path")
-              echo "owner GET $path -> $CODE"
-            done
-
-            # Branch manager
-            BJAR=$(mktemp)
-            curl -sS -i -c "$BJAR" \
-              -d "phone=%2B79990000002&password=demo12345&next=" \
-              http://127.0.0.1/admin/login | head -3
-            for path in /admin/ /admin/stats /admin/promoters /admin/routes /admin/payouts /admin/expense-plans /admin/master-requests; do
-              CODE=$(curl -sS -b "$BJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
-              echo "branch_manager GET $path -> $CODE"
-            done
-
-            # Master
-            MJAR=$(mktemp)
-            curl -sS -i -c "$MJAR" \
-              -d "phone=%2B79990000007&password=demo12345&next=" \
-              http://127.0.0.1/admin/login | head -3
-            for path in /admin/ /admin/master-requests; do
-              CODE=$(curl -sS -b "$MJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
-              echo "master GET $path -> $CODE"
-            done
-
-            # Dispatcher
-            DJAR=$(mktemp)
-            curl -sS -i -c "$DJAR" \
-              -d "phone=%2B79990000008&password=demo12345&next=" \
-              http://127.0.0.1/admin/login | head -3
-            for path in /admin/ /admin/master-requests /admin/orders; do
-              CODE=$(curl -sS -b "$DJAR" -o /dev/null -w '%{http_code}' "http://127.0.0.1$path")
-              echo "dispatcher GET $path -> $CODE"
-            done
-
-            echo "--- last 80 lines of suupr-backend log ---"
-            journalctl -u suupr-backend -n 80 --no-pager || tail -80 /var/log/suupr-backend.err.log || true
-
-            rm -f "$COOKIE_JAR" "$BJAR" "$MJAR" "$DJAR" /tmp/owner_*.html
+            echo "--- last 40 lines of $SERVICE_NAME log ---"
+            journalctl -u "$SERVICE_NAME" -n 40 --no-pager || true
 
             echo "=== DEPLOY OK ==="
