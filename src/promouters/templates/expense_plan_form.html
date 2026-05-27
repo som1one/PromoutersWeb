@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block page_title %}{% if plan %}План #{{ plan.id }}{% else %}Новый план расходов{% endif %} — СУУПР{% endblock %}
+{% block content %}
+{% set is_new = plan is none %}
+{% set is_owner = user.role and user.role.code == 'owner' %}
+{% set is_editable = is_new or (plan and plan.status.value in ['draft','rejected']) %}
+{% set is_submitted = plan and plan.status.value == 'submitted' %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if is_new %}Новый план расходов{% else %}{{ plan.title }}{% endif %}</h1>
+    <p class="page-subtitle">
+      {% if plan %}
+        Статус: <span class="badge {% if plan.status.value == 'approved' %}badge-success{% elif plan.status.value == 'rejected' %}badge-danger{% elif plan.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ plan.status.value }}</span>
+        · Сумма: <b>{{ '%.2f'|format(plan.total_amount or 0) }} {{ plan.currency }}</b>
+      {% else %}
+        Заполните статьи расходов и отправьте на согласование собственнику
+      {% endif %}
+    </p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/expense-plans" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="{% if is_new %}/admin/expense-plans/create{% else %}/admin/expense-plans/{{ plan.id }}{% endif %}" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" name="title" value="{{ plan.title if plan else '' }}" required {% if not is_editable %}readonly{% endif %}>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id" required {% if not is_new %}disabled{% endif %}>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if plan and plan.branch_id and plan.branch_id|string == b.id|string %}selected{% elif not plan and user.branch_id and user.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">С даты</label>
+      <input type="date" name="period_start" value="{{ plan.period_start.isoformat() if plan else today }}" required {% if not is_editable %}readonly{% endif %}>
+    </div>
+    <div class="form-group">
+      <label class="form-label">По дату</label>
+      <input type="date" name="period_end" value="{{ plan.period_end.isoformat() if plan else today }}" required {% if not is_editable %}readonly{% endif %}>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Комментарий</label>
+    <textarea name="comment" rows="2" {% if not is_editable %}readonly{% endif %}>{{ plan.comment or '' if plan else '' }}</textarea>
+  </div>
+
+  <h3 class="card-title" style="margin: 16px 0 8px;">Статьи расходов</h3>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack" id="items-table">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Категория</th>
+          <th>Кол-во</th>
+          <th>Цена</th>
+          <th>Заметка</th>
+        </tr>
+      </thead>
+      <tbody id="items-tbody">
+        {% set rows = plan.items if plan and plan.items else [] %}
+        {% if rows %}
+          {% for it in rows %}
+          <tr>
+            <td data-label="Название"><input name="item_{{ loop.index0 }}_name" value="{{ it.name }}" required {% if not is_editable %}readonly{% endif %}></td>
+            <td data-label="Категория"><input name="item_{{ loop.index0 }}_category" value="{{ it.category or '' }}" {% if not is_editable %}readonly{% endif %}></td>
+            <td data-label="Кол-во"><input name="item_{{ loop.index0 }}_qty" type="number" step="0.01" value="{{ it.quantity }}" {% if not is_editable %}readonly{% endif %}></td>
+            <td data-label="Цена"><input name="item_{{ loop.index0 }}_price" type="number" step="0.01" value="{{ it.unit_price }}" {% if not is_editable %}readonly{% endif %}></td>
+            <td data-label="Заметка"><input name="item_{{ loop.index0 }}_note" value="{{ it.note or '' }}" {% if not is_editable %}readonly{% endif %}></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td data-label="Название"><input name="item_0_name" required></td>
+            <td data-label="Категория"><input name="item_0_category"></td>
+            <td data-label="Кол-во"><input name="item_0_qty" type="number" step="0.01" value="1"></td>
+            <td data-label="Цена"><input name="item_0_price" type="number" step="0.01" value="0"></td>
+            <td data-label="Заметка"><input name="item_0_note"></td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_editable %}
+  <div class="row" style="margin-top: 12px;">
+    <button type="button" class="btn btn-secondary" onclick="addExpenseRow()">+ Строка</button>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    {% if is_editable %}<button type="submit" class="btn">{% if is_new %}Создать{% else %}Сохранить{% endif %}</button>{% endif %}
+    {% if plan and is_editable and not is_new %}
+    <button type="submit" formaction="/admin/expense-plans/{{ plan.id }}/submit" class="btn btn-secondary">Отправить на согласование</button>
+    {% endif %}
+  </div>
+</form>
+
+{% if plan and plan.approvals %}
+<div class="card">
+  <div class="card-header"><h3 class="card-title">Согласования</h3></div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead><tr><th>Утверждающий</th><th>Решение</th><th>Комментарий</th><th>Время</th></tr></thead>
+      <tbody>
+      {% for ap in plan.approvals %}
+        <tr>
+          <td data-label="Утверждающий">{{ ap.approver.first_name }} {{ ap.approver.last_name }}</td>
+          <td data-label="Решение"><span class="badge {% if ap.decision.value == 'approved' %}badge-success{% elif ap.decision.value == 'rejected' %}badge-danger{% else %}badge-info{% endif %}">{{ ap.decision.value }}</span></td>
+          <td data-label="Комментарий">{{ ap.comment or '—' }}</td>
+          <td data-label="Время">{{ ap.decided_at.strftime('%d.%m %H:%M') if ap.decided_at else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if is_owner and is_submitted %}
+<form method="post" action="/admin/expense-plans/{{ plan.id }}/decide" class="card">
+  <div class="card-header"><h3 class="card-title">Решение собственника</h3></div>
+  <div class="form-group">
+    <label class="form-label">Комментарий (опционально)</label>
+    <textarea name="comment" rows="2" placeholder="Например: вернуть на доработку, уменьшить аренду"></textarea>
+  </div>
+  <div class="form-actions">
+    <button type="submit" name="decision" value="approved" class="btn">Одобрить</button>
+    <button type="submit" name="decision" value="needs_revision" class="btn btn-secondary">На доработку</button>
+    <button type="submit" name="decision" value="rejected" class="btn btn-danger">Отклонить</button>
+  </div>
+</form>
+{% endif %}
+
+<script>
+function addExpenseRow() {
+  var tbody = document.getElementById('items-tbody');
+  var idx = tbody.querySelectorAll('tr').length;
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td data-label="Название"><input name="item_'+idx+'_name" required></td>' +
+                 '<td data-label="Категория"><input name="item_'+idx+'_category"></td>' +
+                 '<td data-label="Кол-во"><input name="item_'+idx+'_qty" type="number" step="0.01" value="1"></td>' +
+                 '<td data-label="Цена"><input name="item_'+idx+'_price" type="number" step="0.01" value="0"></td>' +
+                 '<td data-label="Заметка"><input name="item_'+idx+'_note"></td>';
+  tbody.appendChild(tr);
+}
+</script>
+{% endblock %}

@@ -6,34 +6,39 @@
     <h1 class="page-title">Планы расходов</h1>
     <p class="page-subtitle">Всего: {{ plans|length }}</p>
   </div>
+  <div class="page-actions">
+    <a href="/admin/expense-plans/create" class="btn">➕ Новый план</a>
+  </div>
 </div>
 
 <div class="card card-flat">
-  {% if plans %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Название</th>
-        <th>Филиал</th>
-        <th>Период</th>
-        <th>Сумма</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for p in plans %}
-      <tr>
-        <td>{{ p.title or p.id }}</td>
-        <td>{{ p.branch.name if p.branch else '—' }}</td>
-        <td>{{ p.period_from.strftime('%d.%m') if p.period_from else '—' }} — {{ p.period_to.strftime('%d.%m') if p.period_to else '—' }}</td>
-        <td>{{ p.total_amount or 0 }} ₽</td>
-        <td><span class="badge">{{ p.status.value if p.status else '—' }}</span></td>
-        <td><a href="/admin/expense-plans/{{ p.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<div class="empty-state">Планов нет</div>{% endif %}
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Филиал</th>
+          <th>Период</th>
+          <th>Сумма</th>
+          <th>Статус</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in plans %}
+        <tr>
+          <td data-label="Название">{{ p.title or p.id }}</td>
+          <td data-label="Филиал">{{ p.branch.name if p.branch else '—' }}</td>
+          <td data-label="Период">{{ p.period_start.strftime('%d.%m') if p.period_start else '—' }} — {{ p.period_end.strftime('%d.%m') if p.period_end else '—' }}</td>
+          <td data-label="Сумма">{{ '%.0f'|format(p.total_amount or 0) }} {{ p.currency or '' }}</td>
+          <td data-label="Статус"><span class="badge {% if p.status.value == 'approved' %}badge-success{% elif p.status.value == 'rejected' %}badge-danger{% elif p.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ p.status.value }}</span></td>
+          <td data-label=""><a href="/admin/expense-plans/{{ p.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty-state">Планов нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
