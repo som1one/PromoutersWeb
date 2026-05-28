@@ -3,8 +3,15 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">Города и филиалы</h1>
-    <p class="page-subtitle">Управление городами, часовыми поясами и долей компании от кассы</p>
+    <h1 class="page-title">Города и часовые пояса</h1>
+    <p class="page-subtitle">
+      Справочник городов для заявок и статистики (отдельно от филиалов).
+      <br>
+      <small class="text-muted">
+        Поле «Доля компании от кассы» — процент кассы, остающийся компании при разделении выручки;
+        остаток (100 % − доля) уходит мастеру по умолчанию. Используется в расчётах кассы и статистики.
+      </small>
+    </p>
   </div>
 </div>
 
@@ -21,8 +28,10 @@
         <input type="text" name="timezone" value="Europe/Moscow">
       </div>
       <div class="form-group">
-        <label class="form-label">% компании от кассы</label>
-        <input type="number" step="0.01" name="cash_company_percentage" value="50">
+        <label class="form-label" title="Процент кассы, остающийся компании при сплите выручки между компанией и мастером">
+          Доля компании, %
+        </label>
+        <input type="number" step="0.01" min="0" max="100" name="cash_company_percentage" value="50">
       </div>
     </div>
     <div class="form-actions">
@@ -38,7 +47,7 @@
       <tr>
         <th>Название</th>
         <th>Часовой пояс</th>
-        <th>% компании</th>
+        <th>Доля компании, %</th>
         <th></th>
       </tr>
     </thead>
