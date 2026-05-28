@@ -3,10 +3,32 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from promouters.models.finance import (
+    ExpenseApproval,
+    ExpensePlan,
+    ExpensePlanItem,
+    Payout,
+    PayoutRate,
+)
+from promouters.models.operations import (
+    AuditLog,
+    BSOAttachment,
+    MasterGeoPing,
+    MasterRequest,
+    MasterRequestComment,
+    MasterRequestStatusLog,
+)
+from promouters.models.routing import (
+    GeoPing,
+    PhotoReport,
+    PromoterSession,
+    Route,
+    RoutePoint,
+)
 from promouters.models.users import Branch, User
 from promouters.schemas.branches import BranchCreate, BranchRead, BranchUpdate
 from promouters.services.audit import write_audit_log
@@ -146,6 +168,68 @@ def update_branch(
     return get_branch_or_404(db, branch.id)
 
 
+def _purge_branch_dependencies(db: Session, branch_id: str) -> None:
+    """Удалить все записи, привязанные к филиалу, в порядке листья → корни.
+
+    Делаем явно через ORM/SQL вместо опоры на ON DELETE CASCADE, потому что
+    реальные FK на проде могут быть без каскада (старая схема, ручные миграции).
+    Здесь:
+      • маршруты со всеми их данными (точки, сессии, GPS, фото, выплаты);
+      • payout_rates, expense_plans (с items/approvals);
+      • master_requests со вложенными комментариями, лог-статусами, GPS, BSO;
+      • users — НЕ удаляются, у них branch_id просто очищается;
+      • audit_logs — НЕ удаляются, branch_id очищается.
+    """
+    # --- Маршруты и их потомки -------------------------------------------------
+    route_ids = list(db.scalars(select(Route.id).where(Route.branch_id == branch_id)))
+    if route_ids:
+        session_ids = list(
+            db.scalars(select(PromoterSession.id).where(PromoterSession.route_id.in_(route_ids)))
+        )
+
+        # Payouts ссылаются на routes/sessions
+        db.query(Payout).filter(Payout.route_id.in_(route_ids)).delete(synchronize_session=False)
+
+        if session_ids:
+            db.query(PhotoReport).filter(PhotoReport.session_id.in_(session_ids)).delete(synchronize_session=False)
+            db.query(GeoPing).filter(GeoPing.session_id.in_(session_ids)).delete(synchronize_session=False)
+            db.query(PromoterSession).filter(PromoterSession.id.in_(session_ids)).delete(synchronize_session=False)
+
+        db.query(RoutePoint).filter(RoutePoint.route_id.in_(route_ids)).delete(synchronize_session=False)
+        db.query(Route).filter(Route.id.in_(route_ids)).delete(synchronize_session=False)
+
+    # --- Ставки выплат филиала -------------------------------------------------
+    db.query(PayoutRate).filter(PayoutRate.branch_id == branch_id).delete(synchronize_session=False)
+
+    # --- Планы расходов и их потомки ------------------------------------------
+    plan_ids = list(db.scalars(select(ExpensePlan.id).where(ExpensePlan.branch_id == branch_id)))
+    if plan_ids:
+        db.query(ExpenseApproval).filter(ExpenseApproval.expense_plan_id.in_(plan_ids)).delete(synchronize_session=False)
+        db.query(ExpensePlanItem).filter(ExpensePlanItem.expense_plan_id.in_(plan_ids)).delete(synchronize_session=False)
+        db.query(ExpensePlan).filter(ExpensePlan.id.in_(plan_ids)).delete(synchronize_session=False)
+
+    # --- Заявки мастера и их потомки ------------------------------------------
+    request_ids = list(
+        db.scalars(select(MasterRequest.id).where(MasterRequest.branch_id == branch_id))
+    )
+    if request_ids:
+        db.query(BSOAttachment).filter(BSOAttachment.master_request_id.in_(request_ids)).delete(synchronize_session=False)
+        db.query(MasterGeoPing).filter(MasterGeoPing.master_request_id.in_(request_ids)).delete(synchronize_session=False)
+        db.query(MasterRequestStatusLog).filter(
+            MasterRequestStatusLog.master_request_id.in_(request_ids)
+        ).delete(synchronize_session=False)
+        db.query(MasterRequestComment).filter(
+            MasterRequestComment.master_request_id.in_(request_ids)
+        ).delete(synchronize_session=False)
+        db.query(MasterRequest).filter(MasterRequest.id.in_(request_ids)).delete(synchronize_session=False)
+
+    # --- Сбрасываем привязки в живых таблицах ---------------------------------
+    db.execute(update(User).where(User.branch_id == branch_id).values(branch_id=None))
+    db.execute(update(AuditLog).where(AuditLog.branch_id == branch_id).values(branch_id=None))
+
+    db.flush()
+
+
 def delete_branch(
     db: Session,
     branch: Branch,
@@ -155,17 +239,29 @@ def delete_branch(
 ) -> None:
     """Удалить филиал вместе со всеми связанными записями.
 
-    Postgres каскадно сносит маршруты (с точками, сессиями, GPS, фото),
-    выплаты, ставки выплат, планы расходов, заявки мастера и их вложения.
-    Пользователи филиала НЕ удаляются — у них branch_id просто становится NULL.
-    Записи аудита сохраняются (branch_id затирается на NULL).
+    Каскадное удаление выполняется явно в коде (через _purge_branch_dependencies)
+    и не зависит от ON DELETE CASCADE в БД — это важно, потому что реальная схема
+    на проде может расходиться с моделями.
+
+    Что удаляется:
+      • маршруты с точками, GPS-пингами, фото и выплатами;
+      • ставки оплаты филиала;
+      • планы расходов с items/approvals;
+      • заявки мастера со всеми вложениями (комментарии, лог-статусы, GPS, BSO).
+
+    Что сохраняется:
+      • пользователи — branch_id обнуляется;
+      • записи аудита — branch_id обнуляется.
     """
+    before = serialize_branch_for_audit(branch)
+
     try:
-        before = serialize_branch_for_audit(branch)
+        _purge_branch_dependencies(db, branch.id)
+
         write_audit_log(
             db,
             actor_user=actor_user,
-            branch_id=branch.id,
+            branch_id=None,
             entity_type="branch",
             entity_id=str(branch.id),
             action="branch.delete",
@@ -178,14 +274,15 @@ def delete_branch(
             title="Branch removed",
             body=f"Branch '{branch.name}' was removed.",
             payload={"event": "branch.delete", "branch_id": str(branch.id)},
-            branch_id=branch.id,
+            branch_id=None,
             request=request,
         )
+
         db.delete(branch)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Branch cannot be deleted because of database constraints",
+            detail=f"Branch cannot be deleted: {exc.orig}",
         ) from exc
