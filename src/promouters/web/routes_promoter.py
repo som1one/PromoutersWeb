@@ -68,23 +68,66 @@ def _parse_points(raw: str) -> list[RoutePointInput]:
     except json.JSONDecodeError:
         return []
     out: list[RoutePointInput] = []
-    for idx, item in enumerate(data, start=1):
+    if not isinstance(data, list):
+        return out
+    # Фильтруем только точки с валидными координатами — без них маршрут не сохранится
+    valid_items: list[dict] = []
+    for item in data:
         if not isinstance(item, dict):
             continue
         try:
+            lat = float(item["latitude"])
+            lng = float(item["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        item["latitude"] = lat
+        item["longitude"] = lng
+        valid_items.append(item)
+    total = len(valid_items)
+    for idx, item in enumerate(valid_items, start=1):
+        # Принудительно выставляем start/finish крайним точкам — иначе валидатор сервиса
+        # вернёт 422, даже если фронт случайно прислал checkpoint.
+        if idx == 1:
+            point_type = "start"
+        elif idx == total:
+            point_type = "finish"
+        else:
+            point_type = item.get("point_type") or "checkpoint"
+            if point_type in ("start", "finish"):
+                point_type = "checkpoint"
+        try:
             out.append(RoutePointInput(
-                sequence=int(item.get("sequence") or idx),
+                sequence=idx,
                 name=str(item.get("name") or "").strip() or f"Точка {idx}",
                 address=item.get("address"),
-                latitude=float(item["latitude"]) if item.get("latitude") is not None else None,
-                longitude=float(item["longitude"]) if item.get("longitude") is not None else None,
-                point_type=item.get("point_type") or "checkpoint",
+                latitude=item["latitude"],
+                longitude=item["longitude"],
+                point_type=point_type,
                 planned_arrival_at=None,
                 notes=item.get("notes"),
             ))
         except (TypeError, ValueError):
             continue
     return out
+
+
+def _serialize_points_for_form(points: list[RoutePointInput]) -> str:
+    """Сериализовать точки обратно в JSON, чтобы вернуть форму с введёнными данными."""
+    return json.dumps(
+        [
+            {
+                "sequence": p.sequence,
+                "name": p.name,
+                "address": p.address,
+                "latitude": p.latitude,
+                "longitude": p.longitude,
+                "point_type": p.point_type.value if hasattr(p.point_type, "value") else p.point_type,
+                "notes": p.notes,
+            }
+            for p in points
+        ],
+        ensure_ascii=False,
+    )
 
 
 @router.get("/")
@@ -146,7 +189,10 @@ async def route_create_submit(
     user: User = Depends(require_roles(*ROUTE_MANAGER_ROLES)),
 ):
     points = _parse_points(points_json)
-    if len(points) < 2:
+    # Сохраняем то, что прислал юзер, — чтобы вернуть форму с введёнными точками при ошибке
+    submitted_points_json = _serialize_points_for_form(points) if points else points_json
+
+    def _render_error(message: str):
         branches = _list_branches(db, user)
         promoters = _list_promoters(db, user)
         rates = _list_payout_rates(db, user)
@@ -155,7 +201,13 @@ async def route_create_submit(
             user=user, active_page="routes",
             route=None, branches=branches, promoters=promoters, rates=rates,
             today=date.today().isoformat(),
-            flash_error="Маршрут должен содержать минимум 2 точки (старт и финиш)",
+            points_json=submitted_points_json,
+            flash_error=message,
+        )
+
+    if len(points) < 2:
+        return _render_error(
+            "Маршрут должен содержать минимум 2 точки с координатами (старт и финиш)."
         )
 
     try:
@@ -172,16 +224,8 @@ async def route_create_submit(
         new_route = svc.create_route(db, user, payload, settings, request=request)
     except Exception as exc:  # noqa: BLE001
         logger.exception("route.create failed")
-        branches = _list_branches(db, user)
-        promoters = _list_promoters(db, user)
-        rates = _list_payout_rates(db, user)
-        return render(
-            request, "route_form.html",
-            user=user, active_page="routes",
-            route=None, branches=branches, promoters=promoters, rates=rates,
-            today=date.today().isoformat(),
-            flash_error=getattr(exc, "detail", str(exc)),
-        )
+        message = getattr(exc, "detail", None) or str(exc) or "Не удалось сохранить маршрут"
+        return _render_error(str(message))
     return RedirectResponse(f"/admin/routes/{new_route.id}", status_code=302)
 
 
@@ -246,18 +290,39 @@ async def route_update_submit(
     target_id = UUID(route_id)
     route = svc.get_route_for_actor(db, user, target_id)
     points = _parse_points(points_json)
+    submitted_points_json = _serialize_points_for_form(points) if points else points_json
+
+    def _render_error(message: str):
+        return render(
+            request, "route_form.html",
+            user=user, active_page="routes",
+            route=route,
+            branches=_list_branches(db, user),
+            promoters=_list_promoters(db, user),
+            rates=_list_payout_rates(db, user),
+            points_json=submitted_points_json,
+            today=date.today().isoformat(),
+            flash_error=message,
+        )
+
+    if len(points) < 2:
+        return _render_error(
+            "Маршрут должен содержать минимум 2 точки с координатами (старт и финиш)."
+        )
+
     payload = RouteUpdate(
         title=title.strip() or None,
         description=description.strip() or None,
         work_date=date.fromisoformat(work_date) if work_date else None,
         payout_rate_id=UUID(payout_rate_id) if payout_rate_id else None,
-        points=points if len(points) >= 2 else None,
+        points=points,
     )
     try:
         svc.update_route(db, user, route, payload, settings, request=request)
     except Exception as exc:  # noqa: BLE001
         logger.exception("route.update failed")
-        return RedirectResponse(f"/admin/routes/{route_id}?error={getattr(exc, 'detail', 'update')}", status_code=302)
+        message = getattr(exc, "detail", None) or str(exc) or "Не удалось сохранить маршрут"
+        return _render_error(str(message))
     return RedirectResponse(f"/admin/routes/{route_id}", status_code=302)
 
 
