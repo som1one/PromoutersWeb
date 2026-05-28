@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block page_title %}Филиал · {{ branch.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ branch.name }}</h1>
+    <p class="page-subtitle">{{ branch.city or 'без города' }}{% if branch.address %} · {{ branch.address }}{% endif %}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/branches" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+{% if flash_error %}
+  <div class="alert alert-danger">{{ flash_error }}</div>
+{% endif %}
+
+<form method="post" action="/admin/branches/{{ branch.id }}/edit" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" name="name" value="{{ branch.name or '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Город</label>
+      <input type="text" name="city" value="{{ branch.city or '' }}" list="cities-options">
+      <datalist id="cities-options">
+        {% for c in cities %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Адрес</label>
+      <input type="text" name="address" value="{{ branch.address or '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Код</label>
+      <input type="text" name="code" value="{{ branch.code or '' }}">
+    </div>
+  </div>
+  <div class="form-group" style="display:flex;align-items:center;gap:.5rem;">
+    <input type="checkbox" id="branch_is_active" name="is_active" {% if branch.is_active %}checked{% endif %}>
+    <label for="branch_is_active" class="form-label" style="margin:0;">Активен</label>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn">Сохранить</button>
+    <a href="/admin/branches" class="btn btn-ghost">Отмена</a>
+    <form method="post" action="/admin/branches/{{ branch.id }}/delete"
+          onsubmit="return confirm('Удалить филиал «{{ branch.name }}»? Это действие необратимо.');"
+          style="display:inline-block;margin:0;">
+      <button class="btn btn-danger" type="submit">Удалить</button>
+    </form>
+  </div>
+</form>
+{% endblock %}
