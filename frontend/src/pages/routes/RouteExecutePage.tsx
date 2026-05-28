@@ -264,6 +264,39 @@ export function RouteExecutePage() {
     }
   }
 
+  async function handleSendGeoNow() {
+    if (!accessToken || !session) {
+      return;
+    }
+
+    const token = accessToken;
+    setIsSubmitting(true);
+    try {
+      const position = await getBrowserLocation();
+      await createGeoPing(token, session.id, {
+        captured_at: new Date().toISOString(),
+        latitude: position.latitude,
+        longitude: position.longitude,
+        point_id: null,
+        source: 'manual',
+      });
+      await refreshSessionData(session.id);
+      showToast({
+        tone: 'success',
+        title: 'Геопозиция отправлена',
+        description: `${position.latitude.toFixed(5)}, ${position.longitude.toFixed(5)}`,
+      });
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        title: 'Не удалось передать геопозицию',
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleUploadPhoto() {
     if (!accessToken || !session || !photoForm.file) {
       return;
@@ -390,6 +423,22 @@ export function RouteExecutePage() {
         </Surface>
       ) : (
         <>
+          <Surface>
+            <SectionTitle
+              title="Передать геопозицию"
+              subtitle="Одна кнопка — берёт координаты с устройства и отправляет на сервер. Делайте это раз в час, пока нет автотрекинга."
+            />
+            <div className="action-row">
+              <AppButton
+                type="button"
+                onClick={() => void handleSendGeoNow()}
+                disabled={isSubmitting}
+              >
+                📍 Передать геопозицию сейчас
+              </AppButton>
+            </div>
+          </Surface>
+
           <Surface>
             <Accordion title="Добавить GPS" subtitle="Короткая форма трекинга" defaultOpen>
               <div className="form-grid">
