@@ -47,7 +47,7 @@
     <button type="submit" class="btn">Сохранить</button>
     <a href="/admin/branches" class="btn btn-ghost">Отмена</a>
     <form method="post" action="/admin/branches/{{ branch.id }}/delete"
-          onsubmit="return confirm('Удалить филиал «{{ branch.name }}»? Это действие необратимо.');"
+          onsubmit="return confirm('ВНИМАНИЕ! Удаление филиала «{{ branch.name }}» каскадно удалит ВСЕ связанные записи:\n• маршруты с точками, GPS и фото\n• выплаты и ставки оплаты\n• планы расходов\n• заявки мастера и их вложения\nПользователи филиала останутся, но потеряют привязку к нему.\n\nПродолжить?');"
           style="display:inline-block;margin:0;">
       <button class="btn btn-danger" type="submit">Удалить</button>
     </form>

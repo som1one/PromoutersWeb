@@ -7,9 +7,6 @@ from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from promouters.models.finance import ExpensePlan, PayoutRate
-from promouters.models.operations import MasterRequest
-from promouters.models.routing import Route
 from promouters.models.users import Branch, User
 from promouters.schemas.branches import BranchCreate, BranchRead, BranchUpdate
 from promouters.services.audit import write_audit_log
@@ -156,21 +153,13 @@ def delete_branch(
     actor_user: User,
     request: Request | None = None,
 ) -> None:
-    has_dependencies = any(
-        (
-            db.scalar(select(User.id).where(User.branch_id == branch.id).limit(1)),
-            db.scalar(select(Route.id).where(Route.branch_id == branch.id).limit(1)),
-            db.scalar(select(PayoutRate.id).where(PayoutRate.branch_id == branch.id).limit(1)),
-            db.scalar(select(ExpensePlan.id).where(ExpensePlan.branch_id == branch.id).limit(1)),
-            db.scalar(select(MasterRequest.id).where(MasterRequest.branch_id == branch.id).limit(1)),
-        )
-    )
-    if has_dependencies:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Branch cannot be deleted because related records exist",
-        )
+    """Удалить филиал вместе со всеми связанными записями.
 
+    Postgres каскадно сносит маршруты (с точками, сессиями, GPS, фото),
+    выплаты, ставки выплат, планы расходов, заявки мастера и их вложения.
+    Пользователи филиала НЕ удаляются — у них branch_id просто становится NULL.
+    Записи аудита сохраняются (branch_id затирается на NULL).
+    """
     try:
         before = serialize_branch_for_audit(branch)
         write_audit_log(
@@ -198,5 +187,5 @@ def delete_branch(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Branch cannot be deleted because related records exist",
+            detail="Branch cannot be deleted because of database constraints",
         ) from exc

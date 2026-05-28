@@ -127,9 +127,6 @@ async def branch_delete(
     try:
         branches_svc.delete_branch(db, branch, actor_user=user, request=request)
     except HTTPException as exc:
-        # 409 — есть связанные пользователи/маршруты/выплаты
-        msg = "У филиала есть связанные записи (пользователи, маршруты, выплаты и т.п.). Удаление невозможно."
-        if exc.status_code != 409:
-            msg = str(exc.detail)
+        msg = str(exc.detail)
         return RedirectResponse(f"/admin/branches?error={msg}", status_code=303)
     return RedirectResponse("/admin/branches?ok=deleted", status_code=303)
