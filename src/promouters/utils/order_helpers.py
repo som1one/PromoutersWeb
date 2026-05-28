@@ -7,9 +7,10 @@ from __future__ import annotations
 
 
 EQUIP_TYPES: list[tuple[str, str]] = [
-    ("Бытовая", "appliance"),
     ("ПК", "pc"),
-    ("Телевизоры", "phones"),
+    ("ТВ", "tv"),
+    ("БТ", "appliance"),
+    ("МНЧ", "handyman"),
     ("Другое", "other"),
 ]
 
@@ -45,11 +46,13 @@ def get_equip_type_name(code: str | None) -> str:
 
 
 def get_equipment_category(equip_type: str | None) -> str:
-    """Group an equip_type code into one of: appliance / digital / other."""
+    """Group an equip_type code into one of: appliance / digital / handyman / other."""
     if not equip_type:
         return "other"
     if equip_type in ("appliance", "washing_machine", "refrigerator", "oven", "dishwasher", "microwave"):
         return "appliance"
     if equip_type in ("pc", "laptop", "monitor", "phones", "tv", "tablet"):
         return "digital"
+    if equip_type in ("handyman", "plumber", "electrician"):
+        return "handyman"
     return "other"

@@ -13,6 +13,7 @@ from promouters.models.users import User
 from promouters.services import cities as cities_svc
 from promouters.services import orders as orders_svc
 from promouters.utils.order_helpers import (
+    EQUIP_TYPES,
     STATUS_NAMES_RU,
     get_equip_type_name,
     get_status_name_ru,
@@ -120,9 +121,11 @@ async def order_create_form(
         "create_order.html",
         user=user,
         active_page="order_create",
-        cities=cities_svc.list_cities(db),
+        available_cities=cities_svc.list_cities(db),
         masters=orders_svc.list_masters_for_assignment(db),
-        equip_choices=[(name, code) for name, code in [("Бытовая", "appliance"), ("ПК", "pc"), ("Телевизоры", "phones"), ("Другое", "other")]],
+        available_equip_types=[
+            SimpleNamespace(code=code, name=name) for name, code in EQUIP_TYPES
+        ],
     )
 
 

@@ -91,6 +91,12 @@ def save_settings(db: Session, settings: dict[str, dict[str, Any]]) -> None:
 def get_category_for_type(equip_type_code: str | None) -> str:
     if equip_type_code in ("pc", "appliance", "phones", "other"):
         return equip_type_code
+    # Маппинг новых кодов из EQUIP_TYPES на существующие категории комиссий,
+    # чтобы сохранённый commission_config продолжал работать без миграции.
+    if equip_type_code == "tv":
+        return "phones"
+    if equip_type_code in ("handyman", "plumber", "electrician"):
+        return "other"
     return "other"
 
 
