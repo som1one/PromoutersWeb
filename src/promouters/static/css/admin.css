@@ -227,6 +227,8 @@ a:hover { text-decoration: underline; }
   text-decoration: none;
   color: white;
 }
+.btn-primary { background: var(--info); }
+.btn-primary:hover { background: #2563eb; }
 .btn-secondary { background: var(--surface-soft); color: var(--text); }
 .btn-secondary:hover { background: var(--surface); }
 .btn-danger { background: var(--danger); }

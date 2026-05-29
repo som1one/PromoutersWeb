@@ -20,12 +20,25 @@ async def cities_list(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner")),
 ):
+    created = request.query_params.get("created")
+    updated = request.query_params.get("updated")
+    deleted = request.query_params.get("deleted")
+
+    flash_success = None
+    if created:
+        flash_success = "Город создан."
+    elif updated:
+        flash_success = "Доля компании обновлена."
+    elif deleted:
+        flash_success = "Город удалён."
+
     return render(
         request,
         "cities.html",
         user=user,
         active_page="cities",
         cities=cities_svc.list_cities(db),
+        flash_success=flash_success,
     )
 
 

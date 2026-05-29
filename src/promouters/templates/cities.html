@@ -56,7 +56,14 @@
       <tr>
         <td>{{ c.name }}</td>
         <td>{{ c.timezone }}</td>
-        <td>{{ c.cash_company_percentage }}</td>
+        <td>
+          <form method="post" action="/admin/cities/{{ c.id }}/update" style="display:inline-flex;align-items:center;gap:0.5rem;">
+            <input type="number" step="0.01" min="0" max="100" name="cash_company_percentage" value="{{ c.cash_company_percentage }}" style="width:80px;">
+            <input type="hidden" name="name" value="{{ c.name }}">
+            <input type="hidden" name="timezone" value="{{ c.timezone }}">
+            <button type="submit" class="btn btn-sm btn-primary" title="Сохранить новую долю компании">Сохранить</button>
+          </form>
+        </td>
         <td>
           <form method="post" action="/admin/cities/{{ c.id }}/delete" onsubmit="return confirm('Удалить город?');" style="margin: 0;">
             <button class="btn btn-sm btn-danger">Удалить</button>
