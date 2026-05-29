@@ -14,10 +14,10 @@
 <div class="card">
   <div class="card-header"><h3 class="card-title">Общее</h3></div>
   <div class="form-row">
-    <div class="col"><span class="muted">Статус</span><span><span class="badge">{{ route.status.value if route.status else '—' }}</span></span></div>
+    <div class="col"><span class="muted">Статус</span><span><span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% elif route.status.value == 'assigned' %}badge-info{% elif route.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{% if route.status.value == 'draft' %}Черновик{% elif route.status.value == 'assigned' %}Назначен{% elif route.status.value == 'in_progress' %}В работе{% elif route.status.value == 'completed' %}Завершён{% elif route.status.value == 'cancelled' %}Отменён{% else %}{{ route.status.value }}{% endif %}</span></span></div>
     <div class="col"><span class="muted">Филиал</span><span>{{ route.branch.name if route.branch else '—' }}</span></div>
     <div class="col"><span class="muted">Промоутер</span><span>{{ route.promoter.first_name ~ ' ' ~ route.promoter.last_name if route.promoter else '—' }}</span></div>
-    <div class="col"><span class="muted">Запланирован</span><span>{{ route.scheduled_at.strftime('%d.%m.%Y %H:%M') if route.scheduled_at else '—' }}</span></div>
+    <div class="col"><span class="muted">Дата работы</span><span>{{ route.work_date.strftime('%d.%m.%Y') if route.work_date else '—' }}</span></div>
   </div>
 </div>
 
@@ -50,8 +50,8 @@
       <tr>
         <td><span class="badge">{{ s.status.value if s.status else '—' }}</span></td>
         <td>{{ s.started_at.strftime('%d.%m %H:%M') if s.started_at else '—' }}</td>
-        <td>{{ s.completed_at.strftime('%d.%m %H:%M') if s.completed_at else '—' }}</td>
-        <td>{{ s.leaflets_distributed or 0 }}</td>
+        <td>{{ s.ended_at.strftime('%d.%m %H:%M') if s.ended_at else '—' }}</td>
+        <td>{{ s.leaflet_count or 0 }}</td>
       </tr>
     {% endfor %}
     </tbody>

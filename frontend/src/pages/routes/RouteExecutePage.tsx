@@ -210,6 +210,37 @@ export function RouteExecutePage() {
         latitude: Number(startCoordinates.latitude),
         longitude: Number(startCoordinates.longitude),
       });
+      // Перезагружаем маршрут, чтобы получить актуальный статус (in_progress)
+      const updatedRoute = await fetchRoute(token, currentRouteId);
+      setRoute(updatedRoute);
+      await refreshSessionData(startedSession.id);
+      showToast({
+        tone: 'success',
+        title: 'Маршрут начат',
+      });
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        title: 'Старт не выполнен',
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+    const token = accessToken;
+    const currentRouteId = routeId;
+    setIsSubmitting(true);
+    try {
+      const startedSession = await startRoute(token, currentRouteId, {
+        captured_at: new Date().toISOString(),
+        latitude: Number(startCoordinates.latitude),
+        longitude: Number(startCoordinates.longitude),
+      });
+      // Обновляем маршрут целиком, чтобы статус отобразился корректно
+      const updatedRoute = await fetchRoute(token, currentRouteId);
+      setRoute(updatedRoute);
       await refreshSessionData(startedSession.id);
       showToast({
         tone: 'success',
@@ -280,6 +311,9 @@ export function RouteExecutePage() {
         point_id: null,
         source: 'manual',
       });
+      // Обновляем маршрут, чтобы статус был актуальным
+      const updatedRoute = await fetchRoute(token, routeId);
+      setRoute(updatedRoute);
       await refreshSessionData(session.id);
       showToast({
         tone: 'success',

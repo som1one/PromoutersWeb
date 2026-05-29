@@ -126,11 +126,15 @@ export function RouteFinishPage() {
         leaflet_count: Number(formState.leafletCount),
         summary: formState.summary,
       });
+      // Перезагружаем маршрут, чтобы получить актуальный статус (completed)
+      const updatedRoute = await fetchRoute(token, currentRouteId);
+      setRoute(updatedRoute);
       showToast({
         tone: 'success',
         title: 'Маршрут завершен',
       });
-      navigate(`/app/routes/${routeId}`);
+      // Даём UI обновиться перед редиректом
+      setTimeout(() => navigate(`/app/routes/${routeId}`), 800);
     } catch (error) {
       showToast({
         tone: 'error',

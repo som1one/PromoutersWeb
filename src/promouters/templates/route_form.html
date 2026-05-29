@@ -32,7 +32,7 @@
     <h1 class="page-title">{% if is_new %}Новый маршрут{% else %}{{ route.title }}{% endif %}</h1>
     {% if route %}
     <p class="page-subtitle">
-      <span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% else %}badge-warning{% endif %}">{{ route.status.value }}</span>
+      <span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% elif route.status.value == 'assigned' %}badge-info{% elif route.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{% if route.status.value == 'draft' %}Черновик{% elif route.status.value == 'assigned' %}Назначен{% elif route.status.value == 'in_progress' %}В работе{% elif route.status.value == 'completed' %}Завершён{% elif route.status.value == 'cancelled' %}Отменён{% else %}{{ route.status.value }}{% endif %}</span>
       · {{ route.points|length }} точек · {{ route.work_date.strftime('%d.%m.%Y') if route.work_date else '—' }}
     </p>
     {% endif %}
