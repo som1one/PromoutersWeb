@@ -229,34 +229,6 @@ export function RouteExecutePage() {
     }
   }
 
-    const token = accessToken;
-    const currentRouteId = routeId;
-    setIsSubmitting(true);
-    try {
-      const startedSession = await startRoute(token, currentRouteId, {
-        captured_at: new Date().toISOString(),
-        latitude: Number(startCoordinates.latitude),
-        longitude: Number(startCoordinates.longitude),
-      });
-      // Обновляем маршрут целиком, чтобы статус отобразился корректно
-      const updatedRoute = await fetchRoute(token, currentRouteId);
-      setRoute(updatedRoute);
-      await refreshSessionData(startedSession.id);
-      showToast({
-        tone: 'success',
-        title: 'Маршрут начат',
-      });
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        title: 'Старт не выполнен',
-        description: error instanceof Error ? error.message : undefined,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   async function handleAddGeoPing() {
     if (!accessToken || !session) {
       return;
