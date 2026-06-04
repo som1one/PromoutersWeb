@@ -31,7 +31,7 @@
           <td data-label="Филиал">{{ p.branch.name if p.branch else '—' }}</td>
           <td data-label="Период">{{ p.period_start.strftime('%d.%m') if p.period_start else '—' }} — {{ p.period_end.strftime('%d.%m') if p.period_end else '—' }}</td>
           <td data-label="Сумма">{{ '%.0f'|format(p.total_amount or 0) }} {{ p.currency or '' }}</td>
-          <td data-label="Статус"><span class="badge {% if p.status.value == 'approved' %}badge-success{% elif p.status.value == 'rejected' %}badge-danger{% elif p.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ p.status.value }}</span></td>
+          <td data-label="Статус"><span class="badge {% if p.status.value == 'approved' %}badge-success{% elif p.status.value == 'rejected' %}badge-danger{% elif p.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(p.status) }}</span></td>
           <td data-label=""><a href="/admin/expense-plans/{{ p.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
         </tr>
       {% else %}

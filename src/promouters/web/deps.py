@@ -26,6 +26,50 @@ TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
+STATUS_LABELS = {
+    "active": "Активен",
+    "inactive": "Неактивен",
+    "suspended": "Заблокирован",
+    "draft": "Черновик",
+    "assigned": "Назначен",
+    "in_progress": "В работе",
+    "completed": "Завершён",
+    "cancelled": "Отменён",
+    "planned": "Запланирована",
+    "paused": "На паузе",
+    "pending": "На проверке",
+    "accepted": "Принято",
+    "rejected": "Отклонено",
+    "calculated": "Рассчитано",
+    "approved": "Подтверждено",
+    "paid": "Выплачено",
+    "submitted": "На согласовании",
+    "new": "Новая",
+    "on_the_way": "В пути",
+    "handed_over": "Передана",
+    "sent": "Отправлено",
+    "read": "Прочитано",
+    "failed": "Ошибка",
+    "hourly": "Почасовая",
+    "per_leaflet": "За листовку",
+    "fixed_shift": "За смену",
+    "start": "Старт",
+    "checkpoint": "Точка",
+    "stop": "Остановка",
+    "finish": "Финиш",
+}
+
+
+def status_label(value) -> str:
+    raw_value = getattr(value, "value", value)
+    if raw_value is None:
+        return "—"
+    return STATUS_LABELS.get(str(raw_value), str(raw_value))
+
+
+templates.env.globals["status_label"] = status_label
+
+
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
 CHALLENGE_COOKIE = "login_challenge_id"

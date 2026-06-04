@@ -24,7 +24,7 @@
       <select name="status_filter">
         <option value="">— все —</option>
         {% for s in statuses %}
-        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value }}</option>
+        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ status_label(s) }}</option>
         {% endfor %}
       </select>
     </div>
@@ -75,10 +75,10 @@
         <tr>
           <td data-label="Промоутер">{% if p.promoter %}<a href="/admin/promoters/{{ p.promoter.id }}">{{ p.promoter.first_name }} {{ p.promoter.last_name }}</a>{% else %}—{% endif %}</td>
           <td data-label="Маршрут">{% if p.route %}<a href="/admin/routes/{{ p.route.id }}">{{ p.route.title }}</a>{% else %}—{% endif %}</td>
-          <td data-label="Тип">{{ p.payout_rate.rate_type.value if p.payout_rate else '—' }}</td>
+          <td data-label="Тип">{{ status_label(p.payout_rate.rate_type) if p.payout_rate else '—' }}</td>
           <td data-label="Единиц">{{ p.units or 0 }}</td>
           <td data-label="Сумма"><b>{{ p.amount or 0 }} {{ p.currency }}</b></td>
-          <td data-label="Статус"><span class="badge {% if p.status.value == 'paid' %}badge-success{% elif p.status.value == 'cancelled' %}badge-danger{% elif p.status.value == 'approved' %}badge-info{% else %}badge-warning{% endif %}">{{ p.status.value }}</span></td>
+          <td data-label="Статус"><span class="badge {% if p.status.value == 'paid' %}badge-success{% elif p.status.value == 'cancelled' %}badge-danger{% elif p.status.value == 'approved' %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(p.status) }}</span></td>
           <td data-label="">
             {% if is_owner_or_manager %}
               {% if p.status.value == 'calculated' %}

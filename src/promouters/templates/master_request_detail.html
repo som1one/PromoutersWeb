@@ -31,7 +31,7 @@
   <div class="card-header">
     <h3 class="card-title">Статус</h3>
     <p class="card-desc">
-      Сейчас: <span class="badge {% if status_value == 'completed' or status_value == 'handed_over' %}badge-success{% elif status_value == 'cancelled' %}badge-danger{% elif status_value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ status_value }}</span>
+      Сейчас: <span class="badge {% if status_value == 'completed' or status_value == 'handed_over' %}badge-success{% elif status_value == 'cancelled' %}badge-danger{% elif status_value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(status_value) }}</span>
       {% if status_value in ['on_the_way','in_progress'] %}
       <span class="badge badge-info">📍 GPS активен</span>
       {% endif %}
@@ -145,8 +145,8 @@
         <tr>
           <td data-label="Время">{{ log.created_at.strftime('%d.%m %H:%M') if log.created_at else '—' }}</td>
           <td data-label="Кто">{{ log.changed_by.first_name if log.changed_by else '—' }}</td>
-          <td data-label="Из">{{ log.from_status.value if log.from_status else '—' }}</td>
-          <td data-label="В"><span class="badge">{{ log.to_status.value if log.to_status else '—' }}</span></td>
+          <td data-label="Из">{{ status_label(log.from_status) }}</td>
+          <td data-label="В"><span class="badge">{{ status_label(log.to_status) }}</span></td>
           <td data-label="Заметка">{{ log.note or '—' }}</td>
         </tr>
       {% endfor %}

@@ -9,7 +9,6 @@ import { MasterRequestsPage } from '../pages/master-requests/MasterRequestsPage'
 import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 import { HomePage } from '../pages/owner-dashboard/HomePage';
 import { FinanceRoutePage } from '../pages/owner-finance/FinanceRoutePage';
-import { PayoutsPage } from '../pages/payouts/PayoutsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { ReportsPage } from '../pages/reports/ReportsPage';
 import { RouteDetailsPage } from '../pages/routes/RouteDetailsPage';
@@ -110,7 +109,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'payouts',
-        element: <PayoutsPage />,
+        element: <Navigate to="/app/routes" replace />,
       },
       {
         path: 'notifications',

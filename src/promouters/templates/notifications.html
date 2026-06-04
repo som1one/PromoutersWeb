@@ -33,7 +33,7 @@
           <td data-label="Время">{{ n.created_at.strftime('%d.%m %H:%M') if n.created_at else '—' }}</td>
           <td data-label="Сообщение"><b>{{ n.title }}</b><br><span class="muted">{{ n.body }}</span></td>
           <td data-label="Связанное">{% if link %}<a href="{{ link }}">Открыть</a>{% else %}—{% endif %}</td>
-          <td data-label="Статус"><span class="badge {{ 'badge-success' if n.status.value == 'read' else 'badge-info' }}">{{ n.status.value if n.status else '—' }}</span></td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if n.status.value == 'read' else 'badge-info' }}">{{ status_label(n.status) }}</span></td>
           <td data-label="">
             {% if n.status.value != 'read' %}
             <form method="post" action="/admin/notifications/{{ n.id }}/read" style="margin: 0;">

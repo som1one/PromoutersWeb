@@ -15,7 +15,7 @@
       <select name="status_filter">
         <option value="">— все —</option>
         {% for s in statuses %}
-        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ s.value }}</option>
+        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>{{ status_label(s) }}</option>
         {% endfor %}
       </select>
     </div>
@@ -46,7 +46,7 @@
           <td data-label="Адрес">{{ r.address or '—' }}</td>
           <td data-label="Заявитель">{{ r.requester.first_name ~ ' ' ~ r.requester.last_name if r.requester else '—' }}</td>
           <td data-label="Мастер">{{ r.assignee.first_name ~ ' ' ~ r.assignee.last_name if r.assignee else '—' }}</td>
-          <td data-label="Статус"><span class="badge {% if r.status.value in ['completed','handed_over'] %}badge-success{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ r.status.value if r.status else '—' }}</span></td>
+          <td data-label="Статус"><span class="badge {% if r.status.value in ['completed','handed_over'] %}badge-success{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(r.status) }}</span></td>
           <td data-label=""><a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
         </tr>
       {% else %}

@@ -13,7 +13,6 @@ type NavItem = {
 const promoterItems: NavItem[] = [
   { to: '/app', label: 'Главная', icon: 'home' },
   { to: '/app/routes', label: 'Маршруты', icon: 'routes' },
-  { to: '/app/payouts', label: 'Выплаты', icon: 'payouts' },
   { to: '/app/notifications', label: 'Сигналы', icon: 'signals' },
   { to: '/app/profile', label: 'Профиль', icon: 'profile' },
 ];
@@ -29,7 +28,6 @@ const branchManagerItems: NavItem[] = [
   { to: '/app', label: 'Обзор', icon: 'home' },
   { to: '/app/admin/routes', label: 'Маршруты', icon: 'routes' },
   { to: '/app/master-requests', label: 'Заявки', icon: 'tasks' },
-  { to: '/app/income-expense', label: 'Финансы', icon: 'reports' },
   { to: '/app/profile', label: 'Профиль', icon: 'profile' },
 ];
 
@@ -47,7 +45,6 @@ const adDirectorItems: NavItem[] = [
 const ownerItems: NavItem[] = [
   { to: '/app', label: 'Обзор', icon: 'home' },
   { to: '/app/admin/routes', label: 'Маршруты', icon: 'routes' },
-  { to: '/app/income-expense', label: 'Финансы', icon: 'reports' },
   { to: '/app/audit-logs', label: 'Аудит', icon: 'audit' },
   { to: '/app/profile', label: 'Профиль', icon: 'profile' },
 ];
@@ -96,9 +93,6 @@ function getSectionTitle(pathname: string, managerView: boolean) {
   }
   if (pathname.includes('/routes')) {
     return managerView ? 'Все маршруты' : 'Мои маршруты';
-  }
-  if (pathname.includes('/payouts')) {
-    return 'Выплаты';
   }
   if (pathname.includes('/notifications')) {
     return 'Уведомления';

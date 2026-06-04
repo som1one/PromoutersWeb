@@ -32,7 +32,7 @@
     <h1 class="page-title">{% if is_new %}Новый маршрут{% else %}{{ route.title }}{% endif %}</h1>
     {% if route %}
     <p class="page-subtitle">
-      <span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% elif route.status.value == 'assigned' %}badge-info{% elif route.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{% if route.status.value == 'draft' %}Черновик{% elif route.status.value == 'assigned' %}Назначен{% elif route.status.value == 'in_progress' %}В работе{% elif route.status.value == 'completed' %}Завершён{% elif route.status.value == 'cancelled' %}Отменён{% else %}{{ route.status.value }}{% endif %}</span>
+      <span class="badge {% if route.status.value == 'completed' %}badge-success{% elif route.status.value == 'in_progress' %}badge-info{% elif route.status.value == 'cancelled' %}badge-danger{% elif route.status.value == 'assigned' %}badge-info{% elif route.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{{ status_label(route.status) }}</span>
       · {{ route.points|length }} точек · {{ route.work_date.strftime('%d.%m.%Y') if route.work_date else '—' }}
     </p>
     {% endif %}
@@ -68,15 +68,7 @@
         {% endfor %}
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Ставка оплаты</label>
-      <select name="payout_rate_id" {% if not is_editable %}disabled{% endif %}>
-        <option value="">— без ставки —</option>
-        {% for r in rates %}
-        <option value="{{ r.id }}" {% if route and route.payout_rate_id and route.payout_rate_id|string == r.id|string %}selected{% endif %}>{{ r.name }} ({{ r.rate_type.value }} · {{ r.amount }} ₽)</option>
-        {% endfor %}
-      </select>
-    </div>
+    <input type="hidden" name="payout_rate_id" value="{{ route.payout_rate_id if route and route.payout_rate_id else '' }}">
   </div>
 
   <div class="form-group">
@@ -133,7 +125,7 @@
       <tbody>
       {% for s in route.sessions %}
         <tr>
-          <td data-label="Статус"><span class="badge">{{ s.status.value }}</span></td>
+          <td data-label="Статус"><span class="badge">{{ status_label(s.status) }}</span></td>
           <td data-label="Старт">{{ s.started_at.strftime('%d.%m %H:%M') if s.started_at else '—' }}</td>
           <td data-label="Финиш">{{ s.ended_at.strftime('%d.%m %H:%M') if s.ended_at else '—' }}</td>
           <td data-label="Листовок">{{ s.leaflet_count or 0 }}</td>

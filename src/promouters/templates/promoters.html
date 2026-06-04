@@ -31,7 +31,7 @@
           <td data-label="ФИО"><b>{{ p.first_name }} {{ p.last_name }}</b><br><span class="muted">@{{ p.username }}</span></td>
           <td data-label="Контакты">{{ p.phone or '—' }}<br><span class="muted">{{ p.email or '—' }}</span></td>
           <td data-label="Филиал">{{ p.branch.name if p.branch else '—' }}</td>
-          <td data-label="Статус"><span class="badge {{ 'badge-success' if p.status.value == 'active' else 'badge-warning' }}">{{ p.status.value }}</span></td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if p.status.value == 'active' else 'badge-warning' }}">{{ status_label(p.status) }}</span></td>
           <td data-label=""><a href="/admin/promoters/{{ p.id }}" class="btn btn-sm btn-secondary">Карточка</a></td>
         </tr>
       {% else %}

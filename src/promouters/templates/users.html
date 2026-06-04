@@ -64,7 +64,7 @@
           <td data-label="Контакты">{{ u.phone or '—' }}<br><span class="muted">{{ u.email or '—' }}</span></td>
           <td data-label="Роль">{{ u.role.name if u.role else '—' }}</td>
           <td data-label="Филиал">{{ u.branch.name if u.branch else '—' }}</td>
-          <td data-label="Статус"><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ u.status.value }}</span></td>
+          <td data-label="Статус"><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ status_label(u.status) }}</span></td>
           <td data-label="">
             <a href="/admin/users/{{ u.id }}" class="btn btn-sm btn-secondary">Изменить</a>
           </td>

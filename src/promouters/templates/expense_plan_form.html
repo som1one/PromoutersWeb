@@ -11,7 +11,7 @@
     <h1 class="page-title">{% if is_new %}Новый план расходов{% else %}{{ plan.title }}{% endif %}</h1>
     <p class="page-subtitle">
       {% if plan %}
-        Статус: <span class="badge {% if plan.status.value == 'approved' %}badge-success{% elif plan.status.value == 'rejected' %}badge-danger{% elif plan.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ plan.status.value }}</span>
+        Статус: <span class="badge {% if plan.status.value == 'approved' %}badge-success{% elif plan.status.value == 'rejected' %}badge-danger{% elif plan.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(plan.status) }}</span>
         · Сумма: <b>{{ '%.2f'|format(plan.total_amount or 0) }} {{ plan.currency }}</b>
       {% else %}
         Заполните статьи расходов и отправьте на согласование собственнику

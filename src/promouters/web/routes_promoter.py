@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from promouters.core.config import Settings, get_settings
 from promouters.db.session import get_db
-from promouters.models.enums import RouteStatus
+from promouters.models.enums import RouteStatus, UserStatus
 from promouters.models.finance import PayoutRate
 from promouters.models.routing import Route
 from promouters.models.users import Branch, Role, User
@@ -46,6 +46,7 @@ def _list_promoters(db: Session, user: User) -> list[User]:
         .options(joinedload(User.branch))
         .join(Role)
         .where(Role.code == "promoter")
+        .where(User.status == UserStatus.ACTIVE)
         .order_by(User.last_name, User.first_name)
     )
     if user.role and user.role.code != "owner" and user.branch_id is not None:

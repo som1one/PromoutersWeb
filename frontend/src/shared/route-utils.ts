@@ -25,7 +25,7 @@ export function roleCodeLabel(roleCode: string) {
     case 'promoter':
       return 'Промоутер';
     default:
-      return roleCode;
+      return 'Неизвестная роль';
   }
 }
 
@@ -38,11 +38,11 @@ export function routeStatusLabel(status: RouteStatus) {
     case 'in_progress':
       return 'В работе';
     case 'completed':
-      return 'Завершен';
+      return 'Завершён';
     case 'cancelled':
-      return 'Отменен';
+      return 'Отменён';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 
@@ -72,7 +72,7 @@ export function sessionStatusLabel(status: SessionStatus) {
     case 'paused':
       return 'На паузе';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 
@@ -85,7 +85,7 @@ export function photoStatusLabel(status: PhotoStatus) {
     case 'pending':
       return 'На проверке';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 
@@ -113,7 +113,7 @@ export function pointTypeLabel(pointType: RoutePoint['point_type']) {
     case 'checkpoint':
       return 'Точка';
     default:
-      return pointType;
+      return 'Неизвестная точка';
   }
 }
 
@@ -191,7 +191,7 @@ export function payoutStatusLabel(status: PayoutRecord['status']) {
     case 'cancelled':
       return 'Отменено';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 
@@ -211,7 +211,7 @@ export function masterRequestStatusLabel(status: MasterRequestStatus) {
     case 'new':
       return 'Новая';
     case 'accepted':
-      return 'Принял';
+      return 'Принята';
     case 'on_the_way':
       return 'В пути';
     case 'in_progress':
@@ -219,11 +219,11 @@ export function masterRequestStatusLabel(status: MasterRequestStatus) {
     case 'completed':
       return 'Готово';
     case 'handed_over':
-      return 'Забрал на СД';
+      return 'Передана';
     case 'cancelled':
       return 'Отменена';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 
@@ -257,7 +257,7 @@ export function expensePlanStatusLabel(status: ExpensePlanRecord['status']) {
     case 'cancelled':
       return 'Отменён';
     default:
-      return status;
+      return 'Неизвестный статус';
   }
 }
 

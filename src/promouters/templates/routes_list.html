@@ -30,11 +30,11 @@
       <tbody>
       {% for r in routes %}
         <tr>
-          <td data-label="Название"><b>{{ r.title }}</b>{% if r.payout_rate %}<br><span class="muted">{{ r.payout_rate.name }}</span>{% endif %}</td>
+          <td data-label="Название"><b>{{ r.title }}</b></td>
           <td data-label="Промоутер">{% if r.promoter %}{{ r.promoter.first_name }} {{ r.promoter.last_name }}{% else %}<span class="muted">не назначен</span>{% endif %}</td>
           <td data-label="Филиал">{{ r.branch.name if r.branch else '—' }}</td>
           <td data-label="Точек">{{ r.points|length }}</td>
-          <td data-label="Статус"><span class="badge {% if r.status.value == 'completed' %}badge-success{% elif r.status.value == 'in_progress' %}badge-info{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value == 'assigned' %}badge-info{% elif r.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{% if r.status.value == 'draft' %}Черновик{% elif r.status.value == 'assigned' %}Назначен{% elif r.status.value == 'in_progress' %}В работе{% elif r.status.value == 'completed' %}Завершён{% elif r.status.value == 'cancelled' %}Отменён{% else %}{{ r.status.value }}{% endif %}</span></td>
+          <td data-label="Статус"><span class="badge {% if r.status.value == 'completed' %}badge-success{% elif r.status.value == 'in_progress' %}badge-info{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value == 'assigned' %}badge-info{% elif r.status.value == 'draft' %}badge-warning{% else %}badge-warning{% endif %}">{{ status_label(r.status) }}</span></td>
           <td data-label="Дата">{{ r.work_date.strftime('%d.%m.%Y') if r.work_date else '—' }}</td>
           <td data-label=""><a href="/admin/routes/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
         </tr>
