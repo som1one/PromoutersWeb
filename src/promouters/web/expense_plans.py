@@ -28,6 +28,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _parse_decimal(value: str | None) -> Decimal:
+    raw = (value or "").strip().replace(" ", "").replace("\u00a0", "").replace(",", ".")
+    if not raw:
+        return Decimal("0")
+    return Decimal(raw)
+
+
 def _parse_items_from_form(form: dict[str, str]) -> list[ExpensePlanItemCreate]:
     """form fields: item_<idx>_name, item_<idx>_qty, item_<idx>_price, item_<idx>_category, item_<idx>_note"""
     indices = sorted({
@@ -41,8 +48,8 @@ def _parse_items_from_form(form: dict[str, str]) -> list[ExpensePlanItemCreate]:
         if not name:
             continue
         try:
-            qty = Decimal(form.get(f"item_{idx}_qty") or "0")
-            price = Decimal(form.get(f"item_{idx}_price") or "0")
+            qty = _parse_decimal(form.get(f"item_{idx}_qty"))
+            price = _parse_decimal(form.get(f"item_{idx}_price"))
         except InvalidOperation:
             qty, price = Decimal("0"), Decimal("0")
         out.append(ExpensePlanItemCreate(
@@ -54,6 +61,59 @@ def _parse_items_from_form(form: dict[str, str]) -> list[ExpensePlanItemCreate]:
             note=(form.get(f"item_{idx}_note") or "").strip() or None,
         ))
     return out
+
+
+def _parse_sheet_rows(raw_text: str | None) -> list[ExpensePlanItemCreate]:
+    text = (raw_text or "").strip()
+    if not text:
+        return []
+
+    items: list[ExpensePlanItemCreate] = []
+    header_tokens = {
+        "название", "наименование", "категория", "кол-во", "колво", "количество",
+        "цена", "сумма", "комментарий", "заметка", "note",
+        "name", "category", "qty", "quantity", "price", "amount", "comment",
+    }
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        parts = [part.strip() for part in line.split("\t")]
+        while parts and not parts[-1]:
+            parts.pop()
+        if not parts:
+            continue
+
+        normalized = {part.lower() for part in parts}
+        if line_no == 1 and normalized and normalized.issubset(header_tokens):
+            continue
+
+        try:
+            if len(parts) == 1:
+                item = ExpensePlanItemCreate(sequence=len(items) + 1, name=parts[0], quantity=Decimal("1"), unit_price=Decimal("0"))
+            elif len(parts) == 2:
+                item = ExpensePlanItemCreate(sequence=len(items) + 1, name=parts[0], quantity=Decimal("1"), unit_price=_parse_decimal(parts[1]))
+            elif len(parts) == 3:
+                item = ExpensePlanItemCreate(
+                    sequence=len(items) + 1,
+                    name=parts[0],
+                    category=parts[1] or None,
+                    quantity=Decimal("1"),
+                    unit_price=_parse_decimal(parts[2]),
+                )
+            else:
+                item = ExpensePlanItemCreate(
+                    sequence=len(items) + 1,
+                    name=parts[0],
+                    category=parts[1] or None,
+                    quantity=_parse_decimal(parts[2] or "1"),
+                    unit_price=_parse_decimal(parts[3]),
+                    note=" | ".join(part for part in parts[4:] if part) or None,
+                )
+        except (InvalidOperation, ValueError) as exc:
+            raise ValueError(f"Строка {line_no}: не удалось разобрать числа из таблицы") from exc
+
+        items.append(item)
+    return items
 
 
 @router.get("/")
@@ -87,6 +147,7 @@ async def expense_plan_create_form(
         plan=None,
         branches=branches,
         today=date.today().isoformat(),
+        sheet_rows="",
     )
 
 
@@ -103,15 +164,18 @@ async def expense_plan_create_submit(
         period_end = date.fromisoformat(form.get("period_end") or "")
     except (ValueError, TypeError):
         return _back_with_error(request, db, user, plan=None,
-                                error="Заполните филиал и даты периода")
+                                error="Заполните филиал и даты периода",
+                                sheet_rows=form.get("sheet_rows") or "")
 
-    items = _parse_items_from_form(form)
-    if not items:
-        return _back_with_error(request, db, user, plan=None,
-                                error="Добавьте хотя бы одну строку расхода")
+    try:
+        sheet_items = _parse_sheet_rows(form.get("sheet_rows"))
+    except ValueError as exc:
+        return _back_with_error(request, db, user, plan=None, error=str(exc), sheet_rows=form.get("sheet_rows") or "")
+    manual_items = _parse_items_from_form(form)
+    items = sheet_items or manual_items
 
     payload = ExpensePlanCreate(
-        title=(form.get("title") or "").strip() or "Без названия",
+        title=(form.get("title") or "").strip() or "Черновик расходов",
         branch_id=branch_id,
         period_start=period_start,
         period_end=period_end,
@@ -124,7 +188,8 @@ async def expense_plan_create_submit(
     except Exception as exc:  # noqa: BLE001
         logger.exception("expense_plan.create failed")
         return _back_with_error(request, db, user, plan=None,
-                                error=getattr(exc, "detail", str(exc)))
+                                error=getattr(exc, "detail", str(exc)),
+                                sheet_rows=form.get("sheet_rows") or "")
     return RedirectResponse(f"/admin/expense-plans/{plan.id}", status_code=302)
 
 
@@ -144,6 +209,7 @@ async def expense_plan_detail(
         active_page="expense_plans",
         plan=plan,
         branches=branches,
+        sheet_rows="",
     )
 
 
@@ -156,21 +222,27 @@ async def expense_plan_update(
 ):
     plan = svc.get_plan_for_actor(db, user, plan_id)
     form = dict(await request.form())
-    items = _parse_items_from_form(form)
+    try:
+        sheet_items = _parse_sheet_rows(form.get("sheet_rows"))
+    except ValueError as exc:
+        return _back_with_error(request, db, user, plan=plan, error=str(exc), sheet_rows=form.get("sheet_rows") or "")
+    manual_items = _parse_items_from_form(form)
+    items = sheet_items or manual_items
     payload = ExpensePlanUpdate(
         title=(form.get("title") or "").strip() or None,
         period_start=date.fromisoformat(form["period_start"]) if form.get("period_start") else None,
         period_end=date.fromisoformat(form["period_end"]) if form.get("period_end") else None,
         currency=(form.get("currency") or "RUB").upper(),
         comment=(form.get("comment") or "").strip() or None,
-        items=items if items else None,
+        items=items,
     )
     try:
         svc.update_plan(db, user, plan, payload, request=request)
     except Exception as exc:  # noqa: BLE001
         logger.exception("expense_plan.update failed")
         return _back_with_error(request, db, user, plan=plan,
-                                error=getattr(exc, "detail", str(exc)))
+                                error=getattr(exc, "detail", str(exc)),
+                                sheet_rows=form.get("sheet_rows") or "")
     return RedirectResponse(f"/admin/expense-plans/{plan.id}", status_code=302)
 
 
@@ -215,7 +287,7 @@ async def expense_plan_decide(
     return RedirectResponse(f"/admin/expense-plans/{plan.id}", status_code=302)
 
 
-def _back_with_error(request: Request, db: Session, user: User, *, plan, error: str):
+def _back_with_error(request: Request, db: Session, user: User, *, plan, error: str, sheet_rows: str = ""):
     branches = list(db.scalars(select(Branch).order_by(Branch.name)))
     return render(
         request,
@@ -226,4 +298,5 @@ def _back_with_error(request: Request, db: Session, user: User, *, plan, error: 
         branches=branches,
         flash_error=error,
         today=date.today().isoformat(),
+        sheet_rows=sheet_rows,
     )

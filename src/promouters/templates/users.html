@@ -37,6 +37,15 @@
         {% endfor %}
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status_code">
+        <option value="active" {% if filter.status_code == 'active' %}selected{% endif %}>Активные</option>
+        <option value="inactive" {% if filter.status_code == 'inactive' %}selected{% endif %}>Архив</option>
+        <option value="suspended" {% if filter.status_code == 'suspended' %}selected{% endif %}>Заблокированные</option>
+        <option value="all" {% if filter.status_code == 'all' %}selected{% endif %}>Все</option>
+      </select>
+    </div>
     <div class="form-group" style="display: flex; align-items: end; gap: 10px;">
       <button class="btn">Применить</button>
       <a href="/admin/users" class="btn btn-ghost">Сбросить</a>
@@ -64,7 +73,7 @@
           <td data-label="Контакты">{{ u.phone or '—' }}<br><span class="muted">{{ u.email or '—' }}</span></td>
           <td data-label="Роль">{{ u.role.name if u.role else '—' }}</td>
           <td data-label="Филиал">{{ u.branch.name if u.branch else '—' }}</td>
-          <td data-label="Статус"><span class="badge {{ 'badge-success' if u.status.value == 'active' else 'badge-warning' }}">{{ status_label(u.status) }}</span></td>
+          <td data-label="Статус"><span class="badge {% if u.status.value == 'active' %}badge-success{% elif u.status.value == 'suspended' %}badge-danger{% else %}badge-warning{% endif %}">{{ status_label(u.status) }}</span></td>
           <td data-label="">
             <a href="/admin/users/{{ u.id }}" class="btn btn-sm btn-secondary">Изменить</a>
           </td>

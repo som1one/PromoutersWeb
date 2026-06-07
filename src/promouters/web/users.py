@@ -32,6 +32,7 @@ def _filter_users(
     *,
     role_code: str | None,
     branch_id: str | None,
+    status_code: str | None,
     search: str | None,
 ) -> list[User]:
     stmt = (
@@ -48,6 +49,11 @@ def _filter_users(
             stmt = stmt.where(User.branch_id == UUID(branch_id))
         except ValueError:
             pass
+    if status_code and status_code != "all":
+        try:
+            stmt = stmt.where(User.status == UserStatus(status_code))
+        except ValueError:
+            stmt = stmt.where(User.status == UserStatus.ACTIVE)
     if search:
         s = f"%{search.strip()}%"
         from sqlalchemy import or_
@@ -68,13 +74,25 @@ async def users_list(
     request: Request,
     role_code: str | None = None,
     branch_id: str | None = None,
+    status_code: str = "active",
     search: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "branch_manager")),
 ):
-    users = _filter_users(db, user, role_code=role_code, branch_id=branch_id, search=search)
+    users = _filter_users(
+        db,
+        user,
+        role_code=role_code,
+        branch_id=branch_id,
+        status_code=status_code,
+        search=search,
+    )
     roles = list(db.scalars(select(Role).order_by(Role.name)))
     branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+    deleted = request.query_params.get("deleted")
+    error_code = request.query_params.get("error")
+    flash_success = "Пользователь архивирован." if deleted else None
+    flash_error = "Не удалось архивировать пользователя." if error_code == "delete-failed" else None
     return render(
         request,
         "users.html",
@@ -83,7 +101,14 @@ async def users_list(
         users=users,
         roles=roles,
         branches=branches,
-        filter={"role_code": role_code or "", "branch_id": branch_id or "", "search": search or ""},
+        filter={
+            "role_code": role_code or "",
+            "branch_id": branch_id or "",
+            "status_code": status_code or "active",
+            "search": search or "",
+        },
+        flash_success=flash_success,
+        flash_error=flash_error,
     )
 
 
@@ -257,11 +282,12 @@ async def user_delete(
     request: Request,
     user_id: UUID,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("owner")),
+    user: User = Depends(require_roles("owner", "branch_manager")),
 ):
     target = users_svc.get_user_for_actor(db, user, user_id)
     try:
-        users_svc.delete_user(db, user, target, request=request)
+        users_svc.archive_user(db, user, target, request=request)
     except Exception:  # noqa: BLE001
         logger.exception("user.delete failed")
-    return RedirectResponse("/admin/users", status_code=302)
+        return RedirectResponse("/admin/users?error=delete-failed", status_code=302)
+    return RedirectResponse("/admin/users?deleted=1", status_code=302)

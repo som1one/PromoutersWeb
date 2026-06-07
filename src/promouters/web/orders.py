@@ -1,7 +1,7 @@
 """Service-order admin: list, view, create, edit, delete (ported from PJ2)."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -42,7 +42,7 @@ def _status_badge_class(status: str | None) -> str:
 
 
 def _decorate(order, masters_map: dict[int, User] | None = None):
-    address_parts = [p for p in (order.street, order.house, order.flat) if p]
+    address_parts = [part for part in (order.street, order.house, order.flat) if part]
     address = ", ".join(address_parts) if address_parts else "—"
     assignee = (masters_map or {}).get(order.assigned_to) if order.assigned_to else None
     assignee_name = (
@@ -61,13 +61,20 @@ def _decorate(order, masters_map: dict[int, User] | None = None):
         equip_type_name=get_equip_type_name(order.equip_type),
         address_short=address,
         sum_amount=order.sum_amount,
+        paid_amount=order.paid_amount,
+        debt_amount=order.debt_amount,
         assignee_name=assignee_name,
         assigned_to=order.assigned_to,
         client_name=order.client_name,
         client_phone=order.client_phone,
         city_rel=order.city_rel,
+        city_id=order.city_id,
+        street=order.street,
+        house=order.house,
+        flat=order.flat,
         short_desc=order.short_desc,
         comment=order.comment,
+        source=order.source,
         sd_price=order.sd_price,
         zpch_sum=order.zpch_sum,
         time_from=order.time_from,
@@ -79,23 +86,118 @@ def _decorate(order, masters_map: dict[int, User] | None = None):
     )
 
 
+def _parse_range(
+    date_from: str | None,
+    date_to: str | None,
+    period: str | None,
+) -> tuple[datetime | None, datetime | None]:
+    if not date_from and not date_to and not period:
+        today = date.today()
+        date_from = today.replace(day=1).isoformat()
+        date_to = today.isoformat()
+    start_dt = (
+        datetime.fromisoformat(date_from).replace(hour=0, minute=0, second=0, microsecond=0)
+        if date_from else None
+    )
+    end_dt = (
+        datetime.fromisoformat(date_to).replace(hour=23, minute=59, second=59, microsecond=999999)
+        if date_to else None
+    )
+    return start_dt, end_dt
+
+
+def _parse_order_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _order_payload_from_form(
+    *,
+    city_id: int | None,
+    street: str | None,
+    house: str | None,
+    flat: str | None,
+    time_from: str | None,
+    time_to: str | None,
+    order_date: str | None,
+    equip_type: str | None,
+    short_desc: str | None,
+    source: str | None,
+    client_name: str | None,
+    client_phone: str | None,
+    assigned_to: int | None,
+    sum_amount: float | None,
+    sd_price: float | None = None,
+    zpch_sum: float | None = None,
+    comment: str | None = None,
+    status: str | None = None,
+    is_warranty: bool = False,
+) -> dict:
+    payload = {
+        "city_id": city_id,
+        "street": street,
+        "house": house,
+        "flat": flat,
+        "time_from": time_from,
+        "time_to": time_to,
+        "order_date": _parse_order_date(order_date),
+        "equip_type": equip_type,
+        "short_desc": short_desc,
+        "source": source,
+        "client_name": client_name,
+        "client_phone": client_phone,
+        "assigned_to": assigned_to,
+        "sum_amount": sum_amount,
+        "sd_price": sd_price,
+        "zpch_sum": zpch_sum,
+        "comment": comment,
+        "status": status,
+        "is_warranty": is_warranty,
+    }
+    return {
+        key: value
+        for key, value in payload.items()
+        if value is not None and value != ""
+    }
+
+
 @router.get("/")
 async def orders_list(
     request: Request,
     status: str | None = None,
     city_id: int | None = None,
+    search: str | None = None,
+    master_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    period: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_ROLES)),
 ):
-    raw_orders = orders_svc.list_orders(db, status=status, city_id=city_id)
-    master_ids = {o.assigned_to for o in raw_orders if o.assigned_to}
+    start_dt, end_dt = _parse_range(date_from, date_to, period)
+    raw_orders = orders_svc.list_orders(
+        db,
+        status=status,
+        city_id=city_id,
+        assigned_to=master_id,
+        search=search,
+        date_from=start_dt,
+        date_to=end_dt,
+    )
+    master_ids = {order.assigned_to for order in raw_orders if order.assigned_to}
     masters_map: dict[int, User] = {}
     if master_ids:
         from sqlalchemy import select
+
         masters_map = {
-            m.tg_id: m for m in db.scalars(select(User).where(User.tg_id.in_(master_ids)))
+            master.tg_id: master
+            for master in db.scalars(select(User).where(User.tg_id.in_(master_ids)))
         }
-    decorated = [_decorate(o, masters_map) for o in raw_orders]
+    decorated = [_decorate(order, masters_map) for order in raw_orders]
 
     return render(
         request,
@@ -104,9 +206,45 @@ async def orders_list(
         active_page="orders",
         orders=decorated,
         total=len(decorated),
-        filter={"status": status, "city_id": city_id, "date_from": None, "date_to": None},
-        available_statuses=[{"code": c, "name": n} for c, n in STATUS_NAMES_RU.items()],
+        filter={
+            "status": status or "",
+            "city_id": city_id,
+            "date_from": start_dt.date().isoformat() if start_dt else "",
+            "date_to": end_dt.date().isoformat() if end_dt else "",
+            "search": search or "",
+            "master_id": master_id,
+        },
+        available_statuses=[{"code": code, "name": name} for code, name in STATUS_NAMES_RU.items()],
         available_cities=cities_svc.list_cities(db),
+        masters=orders_svc.list_masters_for_assignment(db),
+    )
+
+
+@router.get("/search")
+async def orders_search(
+    request: Request,
+    phone: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*ORDER_ROLES)),
+):
+    raw_orders = orders_svc.list_orders(db, search=phone.strip() if phone else None)
+    master_ids = {order.assigned_to for order in raw_orders if order.assigned_to}
+    masters_map: dict[int, User] = {}
+    if master_ids:
+        from sqlalchemy import select
+
+        masters_map = {
+            master.tg_id: master
+            for master in db.scalars(select(User).where(User.tg_id.in_(master_ids)))
+        }
+    decorated = [_decorate(order, masters_map) for order in raw_orders]
+    return render(
+        request,
+        "order_search.html",
+        user=user,
+        active_page="orders",
+        phone=phone or "",
+        orders=decorated,
     )
 
 
@@ -126,12 +264,13 @@ async def order_create_form(
         available_equip_types=[
             SimpleNamespace(code=code, name=name) for name, code in EQUIP_TYPES
         ],
+        is_edit=False,
+        order_data=None,
     )
 
 
 @router.post("/create")
 async def order_create_submit(
-    request: Request,
     city_id: int | None = Form(None),
     street: str | None = Form(None),
     house: str | None = Form(None),
@@ -146,36 +285,35 @@ async def order_create_submit(
     client_phone: str | None = Form(None),
     assigned_to: int | None = Form(None),
     sum_amount: float | None = Form(None),
+    sd_price: float | None = Form(None),
+    zpch_sum: float | None = Form(None),
+    comment: str | None = Form(None),
     is_warranty: bool = Form(False),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_ROLES)),
 ):
-    parsed_date: datetime | None = None
-    if order_date:
-        try:
-            parsed_date = datetime.fromisoformat(order_date)
-        except ValueError:
-            parsed_date = None
-
     order = orders_svc.create_order(
         db,
-        payload={
-            "city_id": city_id,
-            "street": street,
-            "house": house,
-            "flat": flat,
-            "time_from": time_from,
-            "time_to": time_to,
-            "order_date": parsed_date,
-            "equip_type": equip_type,
-            "short_desc": short_desc,
-            "source": source,
-            "client_name": client_name,
-            "client_phone": client_phone,
-            "assigned_to": assigned_to,
-            "sum_amount": sum_amount,
-            "is_warranty": is_warranty,
-        },
+        payload=_order_payload_from_form(
+            city_id=city_id,
+            street=street,
+            house=house,
+            flat=flat,
+            time_from=time_from,
+            time_to=time_to,
+            order_date=order_date,
+            equip_type=equip_type,
+            short_desc=short_desc,
+            source=source,
+            client_name=client_name,
+            client_phone=client_phone,
+            assigned_to=assigned_to,
+            sum_amount=sum_amount,
+            sd_price=sd_price,
+            zpch_sum=zpch_sum,
+            comment=comment,
+            is_warranty=is_warranty,
+        ),
         created_by_tg_id=user.tg_id,
     )
     return RedirectResponse(f"/admin/orders/{order.id}?created=1", status_code=302)
@@ -191,13 +329,23 @@ async def order_detail(
     order = orders_svc.get_order(db, order_id)
     if not order:
         return render(request, "404.html", user=user, status_code=404, what="Заявка")
+
     masters_map: dict[int, User] = {}
     if order.assigned_to:
         from sqlalchemy import select
+
         masters_map = {
-            m.tg_id: m for m in db.scalars(select(User).where(User.tg_id == order.assigned_to))
+            master.tg_id: master
+            for master in db.scalars(select(User).where(User.tg_id == order.assigned_to))
         }
     decorated = _decorate(order, masters_map)
+
+    flash_success = None
+    if request.query_params.get("created"):
+        flash_success = "Заявка создана."
+    elif request.query_params.get("updated"):
+        flash_success = "Заявка обновлена."
+
     return render(
         request,
         "order_view.html",
@@ -206,12 +354,38 @@ async def order_detail(
         order=decorated,
         cities=cities_svc.list_cities(db),
         masters=orders_svc.list_masters_for_assignment(db),
+        available_statuses=[{"code": code, "name": name} for code, name in STATUS_NAMES_RU.items()],
+        flash_success=flash_success,
+    )
+
+
+@router.get("/{order_id}/edit")
+async def order_edit_form(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*ORDER_ROLES)),
+):
+    order = orders_svc.get_order(db, order_id)
+    if not order:
+        return render(request, "404.html", user=user, status_code=404, what="Заявка")
+    return render(
+        request,
+        "create_order.html",
+        user=user,
+        active_page="orders",
+        available_cities=cities_svc.list_cities(db),
+        masters=orders_svc.list_masters_for_assignment(db),
+        available_equip_types=[
+            SimpleNamespace(code=code, name=name) for name, code in EQUIP_TYPES
+        ],
+        is_edit=True,
+        order_data=order,
     )
 
 
 @router.post("/{order_id}/update")
 async def order_update(
-    request: Request,
     order_id: int,
     status: str | None = Form(None),
     assigned_to: int | None = Form(None),
@@ -220,14 +394,14 @@ async def order_update(
     zpch_sum: float | None = Form(None),
     comment: str | None = Form(None),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles(*ORDER_ROLES)),
+    user: User = Depends(require_roles(*ORDER_ROLES)),  # noqa: ARG001
 ):
     order = orders_svc.get_order(db, order_id)
     if not order:
         return RedirectResponse("/admin/orders?error=notfound", status_code=302)
     payload = {
-        k: v
-        for k, v in {
+        key: value
+        for key, value in {
             "status": status,
             "assigned_to": assigned_to,
             "sum_amount": sum_amount,
@@ -235,9 +409,65 @@ async def order_update(
             "zpch_sum": zpch_sum,
             "comment": comment,
         }.items()
-        if v is not None and v != ""
+        if value is not None and value != ""
     }
     orders_svc.update_order(db, order, payload)
+    return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
+
+
+@router.post("/{order_id}")
+async def order_edit_submit(
+    order_id: int,
+    city_id: int | None = Form(None),
+    street: str | None = Form(None),
+    house: str | None = Form(None),
+    flat: str | None = Form(None),
+    time_from: str | None = Form(None),
+    time_to: str | None = Form(None),
+    order_date: str | None = Form(None),
+    equip_type: str | None = Form(None),
+    short_desc: str | None = Form(None),
+    source: str | None = Form(None),
+    client_name: str | None = Form(None),
+    client_phone: str | None = Form(None),
+    assigned_to: int | None = Form(None),
+    sum_amount: float | None = Form(None),
+    sd_price: float | None = Form(None),
+    zpch_sum: float | None = Form(None),
+    comment: str | None = Form(None),
+    status: str | None = Form(None),
+    is_warranty: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*ORDER_ROLES)),  # noqa: ARG001
+):
+    order = orders_svc.get_order(db, order_id)
+    if not order:
+        return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+    orders_svc.update_order(
+        db,
+        order,
+        _order_payload_from_form(
+            city_id=city_id,
+            street=street,
+            house=house,
+            flat=flat,
+            time_from=time_from,
+            time_to=time_to,
+            order_date=order_date,
+            equip_type=equip_type,
+            short_desc=short_desc,
+            source=source,
+            client_name=client_name,
+            client_phone=client_phone,
+            assigned_to=assigned_to,
+            sum_amount=sum_amount,
+            sd_price=sd_price,
+            zpch_sum=zpch_sum,
+            comment=comment,
+            status=status,
+            is_warranty=is_warranty,
+        ),
+    )
     return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
 
 

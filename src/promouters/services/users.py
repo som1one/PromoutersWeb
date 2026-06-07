@@ -7,7 +7,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from promouters.models.enums import RoleCode
+from promouters.models.enums import RoleCode, UserStatus
 from promouters.models.users import Branch, Role, User
 from promouters.schemas.users import CurrentUserUpdate, UserCreate, UserRead, UserUpdate
 from promouters.services.access import (
@@ -421,3 +421,56 @@ def delete_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="User cannot be deleted because related records exist",
         ) from exc
+
+
+def _archive_identity_fields(user: User) -> None:
+    suffix = str(user.id).replace("-", "")[:12]
+    user.username = f"archived_{suffix}"
+    user.email = f"archived+{suffix}@promouters.local"
+    user.phone = None
+    user.tg_id = None
+
+
+def archive_user(
+    db: Session,
+    actor_user: User,
+    user: User,
+    *,
+    request: Request | None = None,
+    action: str = "user.archive",
+) -> User:
+    if user.id != actor_user.id and not is_owner(actor_user) and not can_manage_user(actor_user, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    before = serialize_user_for_audit(user)
+    _archive_identity_fields(user)
+    user.status = UserStatus.INACTIVE
+    user.is_superuser = False
+    db.add(user)
+    db.flush()
+
+    archived = get_user_or_404(db, user.id)
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=archived.branch_id,
+        entity_type="user",
+        entity_id=str(archived.id),
+        action=action,
+        payload={"before": before, "after": serialize_user_for_audit(archived)},
+        request=request,
+    )
+    notify_owners_about_key_change(
+        db,
+        actor_user=actor_user,
+        title="User archived",
+        body=(
+            f"User {before.get('first_name', '')} {before.get('last_name', '')} was archived by "
+            f"{actor_user.first_name} {actor_user.last_name}."
+        ),
+        payload={"event": action, "user_id": str(archived.id)},
+        branch_id=archived.branch_id,
+        request=request,
+    )
+    db.commit()
+    return archived

@@ -24,6 +24,8 @@ def list_orders(
     city_id: int | None = None,
     assigned_to: int | None = None,
     search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     limit: int = 200,
     offset: int = 0,
 ) -> list[Order]:
@@ -38,6 +40,10 @@ def list_orders(
         stmt = stmt.where(Order.city_id == city_id)
     if assigned_to:
         stmt = stmt.where(Order.assigned_to == assigned_to)
+    if date_from:
+        stmt = stmt.where(Order.created_at >= date_from)
+    if date_to:
+        stmt = stmt.where(Order.created_at <= date_to)
     if search:
         like = f"%{search}%"
         stmt = stmt.where(

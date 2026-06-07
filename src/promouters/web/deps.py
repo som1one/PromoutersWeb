@@ -57,6 +57,12 @@ STATUS_LABELS = {
     "checkpoint": "Точка",
     "stop": "Остановка",
     "finish": "Финиш",
+    "needs_revision": "На доработку",
+    "accepted_by_director": "Принят директором",
+    "forwarded_to_manager": "Передан менеджеру",
+    "manual": "Вручную",
+    "tracking": "Трекинг",
+    "photo": "Фото",
 }
 
 

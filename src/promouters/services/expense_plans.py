@@ -309,6 +309,11 @@ def submit_plan(
             status_code=status.HTTP_409_CONFLICT,
             detail="План уже отправлен на согласование или закрыт",
         )
+    if not plan.items:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Добавьте хотя бы одну строку расхода перед отправкой на согласование",
+        )
 
     plan.status = ExpensePlanStatus.SUBMITTED
     plan.submitted_at = datetime.now(UTC)

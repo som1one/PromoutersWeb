@@ -16,9 +16,10 @@ from promouters.web import (
     branches as branches_router,
     cash as cash_router,
     cities as cities_router,
-    commission as commission_router,
+    company as company_router,
     dashboard as dashboard_router,
     expense_plans as expense_plans_router,
+    legacy as legacy_router,
     master_requests as master_requests_router,
     masters as masters_router,
     notifications as notifications_router,
@@ -36,13 +37,14 @@ web_router = APIRouter()
 
 # Order matters only for path-overlap visibility — FastAPI matches exact paths.
 web_router.include_router(auth_router.router)
+web_router.include_router(legacy_router.router)
 web_router.include_router(dashboard_router.router)
 web_router.include_router(orders_router.router, prefix="/orders")
 web_router.include_router(masters_router.router, prefix="/masters")
 web_router.include_router(promoters_router.router, prefix="/promoters")
 web_router.include_router(cities_router.router, prefix="/cities")
+web_router.include_router(company_router.router, prefix="/company")
 web_router.include_router(branches_router.router, prefix="/branches")
-web_router.include_router(commission_router.router, prefix="/commission")
 web_router.include_router(cash_router.router, prefix="/cash")
 web_router.include_router(sd_router.router, prefix="/sd")
 web_router.include_router(stats_router.router, prefix="/stats")

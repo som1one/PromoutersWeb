@@ -3,11 +3,14 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">Заявка #{{ order.id }}</h1>
+    <h1 class="page-title">Заявка #{{ order.order_number or order.id }}</h1>
     <p class="page-subtitle">Создана {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—' }}</p>
   </div>
   <div class="page-actions">
     <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
+    {% if user.role.code in ['owner','director','dispatcher','branch_manager','ad_director'] %}
+    <a href="/admin/orders/{{ order.id }}/edit" class="btn">✎ Редактировать</a>
+    {% endif %}
   </div>
 </div>
 
@@ -18,7 +21,7 @@
   <div class="form-row">
     <div class="col">
       <span class="muted">Статус</span>
-      <span><span class="badge {{ status_badge_class }}">{{ status_name }}</span></span>
+      <span><span class="badge {{ order.status_badge_class }}">{{ order.status_name }}</span></span>
     </div>
     <div class="col">
       <span class="muted">Дата</span>
@@ -30,11 +33,11 @@
     </div>
     <div class="col">
       <span class="muted">Адрес</span>
-      <span>{{ address_full }}</span>
+      <span>{{ order.address_short }}</span>
     </div>
     <div class="col">
       <span class="muted">Тип техники</span>
-      <span>{{ equip_type_name }}</span>
+      <span>{{ order.equip_type_name }}</span>
     </div>
     <div class="col">
       <span class="muted">Описание</span>
@@ -51,6 +54,7 @@
     <div class="col"><span class="muted">Имя</span><span>{{ order.client_name or '—' }}</span></div>
     <div class="col"><span class="muted">Телефон</span><span>{{ order.client_phone or '—' }}</span></div>
     <div class="col"><span class="muted">Источник</span><span>{{ order.source or '—' }}</span></div>
+    <div class="col"><span class="muted">Мастер</span><span>{{ order.assignee_name or '—' }}</span></div>
   </div>
 </div>
 
@@ -58,22 +62,80 @@
   <div class="card-header">
     <h3 class="card-title">Финансы</h3>
   </div>
-  <div class="form-row" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="form-row" style="grid-template-columns: repeat(5, 1fr);">
     <div class="col"><span class="muted">Сумма</span><span>{{ order.sum_amount or 0 }} ₽</span></div>
     <div class="col"><span class="muted">Оплачено</span><span>{{ order.paid_amount or 0 }} ₽</span></div>
     <div class="col"><span class="muted">Долг</span><span>{{ order.debt_amount or 0 }} ₽</span></div>
     <div class="col"><span class="muted">СД</span><span>{{ order.sd_price or 0 }} ₽</span></div>
+    <div class="col"><span class="muted">Запчасти</span><span>{{ order.zpch_sum or 0 }} ₽</span></div>
   </div>
 </div>
 
-{% if user.role.code in ['owner','director','dispatcher'] %}
-<div class="row">
-  <a href="/admin/orders/{{ order.id }}/edit" class="btn">✏ Редактировать</a>
-  {% if user.role.code == 'owner' %}
-  <form method="post" action="/admin/orders/{{ order.id }}/delete" onsubmit="return confirm('Удалить заявку?');" style="margin: 0;">
-    <button type="submit" class="btn btn-danger">🗑 Удалить</button>
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Быстрое обновление</h3>
+  </div>
+  <form method="post" action="/admin/orders/{{ order.id }}/update" class="form-row">
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status">
+        {% for item in available_statuses %}
+        <option value="{{ item.code }}" {% if order.status == item.code %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Мастер</label>
+      <select name="assigned_to">
+        <option value="">— не назначен —</option>
+        {% for master in masters %}
+        <option value="{{ master.tg_id }}" {% if order.assigned_to == master.tg_id %}selected{% endif %}>
+          {{ master.full_name or master.name or (master.first_name ~ ' ' ~ master.last_name) }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Сумма</label>
+      <input type="number" step="0.01" name="sum_amount" value="{{ order.sum_amount if order.sum_amount is not none else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">СД</label>
+      <input type="number" step="0.01" name="sd_price" value="{{ order.sd_price if order.sd_price is not none else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Запчасти</label>
+      <input type="number" step="0.01" name="zpch_sum" value="{{ order.zpch_sum if order.zpch_sum is not none else '' }}">
+    </div>
+    <div class="form-group" style="grid-column: 1 / -1;">
+      <label class="form-label">Комментарий</label>
+      <textarea name="comment" rows="2">{{ order.comment or '' }}</textarea>
+    </div>
+    <div class="form-actions" style="grid-column: 1 / -1;">
+      <button type="submit" class="btn">Сохранить</button>
+    </div>
   </form>
-  {% endif %}
 </div>
+
+{% if order.receipt_file_path or order.bso_file_path %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Документы</h3>
+  </div>
+  <div class="row">
+    {% if order.receipt_file_path %}
+    <a href="/media/{{ order.receipt_file_path }}" class="btn btn-secondary" target="_blank" rel="noopener">Чек</a>
+    {% endif %}
+    {% if order.bso_file_path %}
+    <a href="/media/{{ order.bso_file_path }}" class="btn btn-secondary" target="_blank" rel="noopener">БСО</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if user.role.code == 'owner' %}
+<form method="post" action="/admin/orders/{{ order.id }}/delete" onsubmit="return confirm('Удалить заявку?');" style="margin-top: 16px;">
+  <button type="submit" class="btn btn-danger">Удалить заявку</button>
+</form>
 {% endif %}
 {% endblock %}

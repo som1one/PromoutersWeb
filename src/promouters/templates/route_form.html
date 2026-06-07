@@ -3,23 +3,42 @@
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
-  .route-map-card { padding: 0; overflow: hidden; }
+  .route-map-card { padding: 0; overflow: hidden; position: relative; }
   .route-map-toolbar {
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    padding: 12px 16px; border-bottom: 1px solid var(--border, #e5e7eb);
-    background: var(--bg-soft, #f7f8fa);
+    padding: 12px 16px; border-bottom: 1px solid var(--border-subtle, #d8e1ee);
+    background: var(--surface, #ffffff);
   }
   .route-map-toolbar .map-hint { color: var(--text-soft, #6b7280); font-size: 13px; margin-right: auto; }
-  #route-map { width: 100%; height: 70vh; min-height: 420px; }
-  .route-map-fullscreen #route-map { height: calc(100vh - 64px); }
-  .route-map-fullscreen .route-map-card {
-    position: fixed; inset: 0; z-index: 1000; border-radius: 0;
-    display: flex; flex-direction: column;
+  #route-map { width: 100%; height: min(62vh, 680px); min-height: 360px; }
+  .route-map-card.is-fullscreen {
+    position: fixed; inset: 0; z-index: 1200; border-radius: 0; margin: 0;
+    width: 100vw; max-width: none; height: 100vh; height: 100dvh; display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto; border: 0; box-shadow: none;
+    background: var(--surface, #ffffff); overscroll-behavior: contain;
   }
-  .route-map-fullscreen .route-map-card #points-list { max-height: 30vh; overflow: auto; }
+  .route-map-card.is-fullscreen #route-map { height: auto; min-height: 0; }
+  .route-map-card.is-fullscreen #points-list {
+    max-height: min(28vh, 260px); overflow: auto;
+    border-top: 1px solid var(--border-subtle, #d8e1ee);
+    background: var(--surface, #ffffff);
+  }
+  .route-map-card.is-fullscreen #points-list:empty { display: none; }
   .point-list { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; }
   .point-list-row { display: flex; gap: 8px; align-items: center; padding: 8px; background: var(--bg-soft); border-radius: 8px; }
   .point-list-row code { font-family: monospace; color: var(--text-soft); font-size: 12px; }
+  html.route-map-modal-open,
+  body.route-map-modal-open { overflow: hidden; overscroll-behavior: none; }
+  @media (max-width: 768px) {
+    .route-map-toolbar { padding: 10px 12px; align-items: flex-start; }
+    .route-map-toolbar .map-hint { order: 2; width: 100%; margin-right: 0; font-size: 12px; line-height: 1.45; }
+    #route-map { height: 52vh; min-height: 280px; }
+    .route-map-card.is-fullscreen #points-list { max-height: min(34vh, 280px); }
+    .page-actions { width: 100%; }
+    .page-actions .btn,
+    .page-actions form,
+    .page-actions form .btn { width: 100%; }
+  }
 </style>
 {% endblock %}
 {% block content %}
@@ -244,20 +263,50 @@
 
   // Полноэкранный режим карты — переключаем класс на body, размер карты пересчитываем
   var fsBtn = document.getElementById('map-fullscreen-btn');
-  if (fsBtn) {
-    fsBtn.addEventListener('click', function () {
-      document.body.classList.toggle('route-map-fullscreen');
-      var on = document.body.classList.contains('route-map-fullscreen');
-      fsBtn.textContent = on ? '✕ Свернуть' : '⛶ Полный экран';
-      // Leaflet нужно пнуть, чтобы он перерисовал тайлы под новый размер контейнера
+  var mapWrap = document.getElementById('route-map-wrap');
+  if (fsBtn && mapWrap) {
+    var savedScrollY = 0;
+
+    function setFullscreen(on) {
+      if (on === mapWrap.classList.contains('is-fullscreen')) {
+        return;
+      }
+      if (on) {
+        savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+        document.documentElement.classList.add('route-map-modal-open');
+        document.body.classList.add('route-map-modal-open');
+        document.body.style.position = 'fixed';
+        document.body.style.top = '-' + savedScrollY + 'px';
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+      } else {
+        document.documentElement.classList.remove('route-map-modal-open');
+        document.body.classList.remove('route-map-modal-open');
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+      }
+      mapWrap.classList.toggle('is-fullscreen', on);
+      fsBtn.textContent = on
+        ? '\u2715 \u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c'
+        : '\u26F6 \u041F\u043E\u043B\u043D\u044B\u0439 \u044D\u043A\u0440\u0430\u043D';
+      if (!on) {
+        window.scrollTo(0, savedScrollY);
+      }
       setTimeout(function () { map.invalidateSize(); }, 50);
+      setTimeout(function () { map.invalidateSize(); }, 180);
+    }
+
+    fsBtn.addEventListener('click', function () {
+      setFullscreen(!mapWrap.classList.contains('is-fullscreen'));
     });
-    // ESC выходит из полноэкранного режима
+
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && document.body.classList.contains('route-map-fullscreen')) {
-        document.body.classList.remove('route-map-fullscreen');
-        fsBtn.textContent = '⛶ Полный экран';
-        setTimeout(function () { map.invalidateSize(); }, 50);
+      if (e.key === 'Escape' && mapWrap.classList.contains('is-fullscreen')) {
+        setFullscreen(false);
       }
     });
   }

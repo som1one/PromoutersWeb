@@ -17,7 +17,9 @@ from promouters.services.auth import create_login_flow, verify_login_code
 from promouters.web.deps import (
     ACCESS_COOKIE,
     CHALLENGE_COOKIE,
+    REFRESH_COOKIE,
     clear_auth_cookies,
+    get_optional_web_user,
     render,
     set_auth_cookies,
 )
@@ -33,10 +35,19 @@ def _safe_next(next_url: str | None) -> str:
 
 
 @router.get("/login")
-async def login_form(request: Request, next: str | None = None):
-    if request.cookies.get(ACCESS_COOKIE):
+async def login_form(
+    request: Request,
+    next: str | None = None,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    user = get_optional_web_user(request, db=db, settings=settings)
+    if user is not None:
         return RedirectResponse(_safe_next(next), status_code=302)
-    return render(request, "admin_login.html", flash_error=None, phone=None, next=next or "")
+    response = render(request, "admin_login.html", flash_error=None, phone=None, next=next or "")
+    if request.cookies.get(ACCESS_COOKIE) or request.cookies.get(REFRESH_COOKIE):
+        clear_auth_cookies(response)
+    return response
 
 
 @router.post("/login")

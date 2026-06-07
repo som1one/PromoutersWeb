@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block page_title %}Новая заявка — СУУПР{% endblock %}
+{% block page_title %}{% if is_edit %}Редактирование заявки{% else %}Новая заявка{% endif %} — СУУПР{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">Новая заявка</h1>
-    <p class="page-subtitle">Заполните поля и сохраните</p>
+    <h1 class="page-title">{% if is_edit %}Редактирование заявки #{{ order_data.id }}{% else %}Новая заявка{% endif %}</h1>
+    <p class="page-subtitle">{% if is_edit %}Обновите данные и сохраните изменения{% else %}Заполните поля и сохраните{% endif %}</p>
   </div>
   <div class="page-actions">
-    <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
+    <a href="{% if is_edit %}/admin/orders/{{ order_data.id }}{% else %}/admin/orders{% endif %}" class="btn btn-ghost">← Назад</a>
   </div>
 </div>
 
-<form method="post" action="/admin/orders/create" class="card">
+<form method="post" action="{% if is_edit %}/admin/orders/{{ order_data.id }}{% else %}/admin/orders/create{% endif %}" class="card">
   <div class="form-row">
     <div class="form-group">
       <label class="form-label">Город</label>
       <select name="city_id">
         <option value="">—</option>
         {% for c in available_cities %}
-          <option value="{{ c.id }}">{{ c.name }}</option>
+          <option value="{{ c.id }}" {% if order_data and order_data.city_id == c.id %}selected{% endif %}>{{ c.name }}</option>
         {% endfor %}
       </select>
     </div>
@@ -27,7 +27,7 @@
       <select name="equip_type">
         <option value="">—</option>
         {% for et in available_equip_types %}
-          <option value="{{ et.code }}">{{ et.name }}</option>
+          <option value="{{ et.code }}" {% if order_data and order_data.equip_type == et.code %}selected{% endif %}>{{ et.name }}</option>
         {% endfor %}
       </select>
     </div>
@@ -36,13 +36,13 @@
   <div class="form-row">
     <div class="form-group">
       <label class="form-label">Дата</label>
-      <input type="date" name="order_date" required>
+      <input type="date" name="order_date" value="{{ order_data.order_date.date().isoformat() if order_data and order_data.order_date else '' }}" required>
     </div>
     <div class="form-group">
       <label class="form-label">Время с / до</label>
       <div class="row">
-        <input type="time" name="time_from">
-        <input type="time" name="time_to">
+        <input type="time" name="time_from" value="{{ order_data.time_from or '' }}">
+        <input type="time" name="time_to" value="{{ order_data.time_to or '' }}">
       </div>
     </div>
   </div>
@@ -50,37 +50,105 @@
   <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr;">
     <div class="form-group">
       <label class="form-label">Улица</label>
-      <input type="text" name="street" required>
+      <input type="text" name="street" value="{{ order_data.street or '' }}" required>
     </div>
     <div class="form-group">
       <label class="form-label">Дом</label>
-      <input type="text" name="house">
+      <input type="text" name="house" value="{{ order_data.house or '' }}">
     </div>
     <div class="form-group">
       <label class="form-label">Квартира</label>
-      <input type="text" name="flat">
+      <input type="text" name="flat" value="{{ order_data.flat or '' }}">
     </div>
   </div>
 
   <div class="form-row">
     <div class="form-group">
       <label class="form-label">Клиент</label>
-      <input type="text" name="client_name">
+      <input type="text" name="client_name" value="{{ order_data.client_name or '' }}">
     </div>
     <div class="form-group">
       <label class="form-label">Телефон клиента</label>
-      <input type="tel" name="client_phone">
+      <input type="tel" name="client_phone" value="{{ order_data.client_phone or '' }}">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Источник</label>
+      <input type="text" name="source" value="{{ order_data.source or '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Мастер</label>
+      <select name="assigned_to">
+        <option value="">— не назначен —</option>
+        {% for master in masters %}
+          <option value="{{ master.tg_id }}" {% if order_data and order_data.assigned_to == master.tg_id %}selected{% endif %}>
+            {{ master.full_name or master.name or (master.first_name ~ ' ' ~ master.last_name) }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  {% if is_edit %}
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <select name="status">
+        {% for code, label in {
+          'new': 'Новая',
+          'assigned': 'Назначена',
+          'accepted': 'Принята',
+          'on_place': 'На месте',
+          'to_sd': 'В СД',
+          'done_pending_sum': 'Ожидает кассу',
+          'completed': 'Завершена',
+          'declined': 'Отказ',
+          'cancelled': 'Отменена'
+        }.items() %}
+          <option value="{{ code }}" {% if order_data and order_data.status == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Гарантия</label>
+      <label style="display:flex; align-items:center; gap:8px; min-height:46px;">
+        <input type="checkbox" name="is_warranty" {% if order_data and order_data.is_warranty %}checked{% endif %}>
+        Гарантийный заказ
+      </label>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-row" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="form-group">
+      <label class="form-label">Сумма заказа</label>
+      <input type="number" step="0.01" name="sum_amount" value="{{ order_data.sum_amount if order_data and order_data.sum_amount is not none else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">СД</label>
+      <input type="number" step="0.01" name="sd_price" value="{{ order_data.sd_price if order_data and order_data.sd_price is not none else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Запчасти</label>
+      <input type="number" step="0.01" name="zpch_sum" value="{{ order_data.zpch_sum if order_data and order_data.zpch_sum is not none else '' }}">
     </div>
   </div>
 
   <div class="form-group">
     <label class="form-label">Описание</label>
-    <textarea name="short_desc" rows="3"></textarea>
+    <textarea name="short_desc" rows="3">{{ order_data.short_desc or '' if order_data else '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Комментарий</label>
+    <textarea name="comment" rows="2">{{ order_data.comment or '' if order_data else '' }}</textarea>
   </div>
 
   <div class="form-actions">
-    <button type="submit" class="btn">Создать</button>
-    <a href="/admin/orders" class="btn btn-ghost">Отмена</a>
+    <button type="submit" class="btn">{% if is_edit %}Сохранить изменения{% else %}Создать{% endif %}</button>
+    <a href="{% if is_edit %}/admin/orders/{{ order_data.id }}{% else %}/admin/orders{% endif %}" class="btn btn-ghost">Отмена</a>
   </div>
 </form>
 {% endblock %}

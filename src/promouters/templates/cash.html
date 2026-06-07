@@ -18,6 +18,15 @@
       <label class="form-label">По дату</label>
       <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
     </div>
+    <div class="form-group">
+      <label class="form-label">Город</label>
+      <select name="city_id">
+        <option value="">Все города</option>
+        {% for city in available_cities %}
+        <option value="{{ city.id }}" {% if filter.city_id|string == city.id|string %}selected{% endif %}>{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
   </div>
   <div class="form-actions">
     <button type="submit" class="btn">Применить</button>
@@ -40,6 +49,80 @@
   <div class="kpi">
     <div class="kpi-label">Заявок</div>
     <div class="kpi-value">{{ report.orders_count or 0 }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card-header">
+    <h3 class="card-title">Ожидают приёма в кассу</h3>
+    <p class="card-desc">Заявки со статусом "ожидает кассу"</p>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Мастер</th>
+          <th>Заявок</th>
+          <th>Сумма</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in pending_masters %}
+        <tr>
+          <td data-label="Мастер">{{ item.master_name }}</td>
+          <td data-label="Заявок">{{ item.count }}</td>
+          <td data-label="Сумма">{{ '%.2f'|format(item.total_sum) }} ₽</td>
+          <td data-label="">
+            <form method="post" action="/admin/cash/accept/{{ item.master_id }}" style="margin:0;">
+              <button type="submit" class="btn btn-sm">Принять кассу</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty-state">Нет ожидающих заявок</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Заявки в очереди кассы</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Мастер</th>
+          <th>Адрес</th>
+          <th>Сумма</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for order in pending_orders %}
+        <tr>
+          <td data-label="№">#{{ order.order_number or order.id }}</td>
+          <td data-label="Мастер">
+            {% set master = masters_map.get(order.assigned_to) if order.assigned_to else None %}
+            {{ master.full_name or master.name or (master.first_name ~ ' ' ~ master.last_name) if master else '—' }}
+          </td>
+          <td data-label="Адрес">{{ [order.street, order.house, order.flat]|select|join(', ') or '—' }}</td>
+          <td data-label="Сумма">{{ order.sum_amount or 0 }} ₽</td>
+          <td data-label="">
+            <form method="post" action="/admin/cash/accept-order/{{ order.id }}" style="margin:0;">
+              <button type="submit" class="btn btn-sm btn-secondary">Принять</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty-state">Очередь пуста</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 {% endblock %}

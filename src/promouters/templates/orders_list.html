@@ -10,7 +10,10 @@
     {% if user.role.code in ['owner','director','dispatcher'] %}
     <a href="/admin/orders/create" class="btn">➕ Новая заявка</a>
     {% endif %}
-    <a href="/admin/orders/search" class="btn btn-secondary">🔍 Поиск</a>
+    <a href="/admin/orders/search" class="btn btn-secondary">Поиск</a>
+    {% if user.role.code in ['owner','director'] %}
+    <a href="/admin/export/orders?format=xlsx&days=30" class="btn btn-ghost">Экспорт</a>
+    {% endif %}
   </div>
 </div>
 
@@ -35,6 +38,23 @@
       </select>
     </div>
     <div class="form-group">
+      <label class="form-label">Мастер</label>
+      <select name="master_id">
+        <option value="">Все</option>
+        {% for master in masters %}
+        <option value="{{ master.tg_id }}" {% if filter.master_id|string == master.tg_id|string %}selected{% endif %}>
+          {{ master.full_name or master.name or (master.first_name ~ ' ' ~ master.last_name) }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Поиск</label>
+      <input type="search" name="search" value="{{ filter.search or '' }}" placeholder="клиент, телефон, адрес">
+    </div>
+  </div>
+  <div class="form-row" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="form-group">
       <label class="form-label">С даты</label>
       <input type="date" name="date_from" value="{{ filter.date_from or '' }}">
     </div>
@@ -42,10 +62,10 @@
       <label class="form-label">По дату</label>
       <input type="date" name="date_to" value="{{ filter.date_to or '' }}">
     </div>
-  </div>
-  <div class="form-actions">
-    <button type="submit" class="btn">Применить</button>
-    <a href="/admin/orders" class="btn btn-ghost">Сбросить</a>
+    <div class="form-group" style="display:flex; align-items:flex-end; gap:10px;">
+      <button type="submit" class="btn">Применить</button>
+      <a href="/admin/orders" class="btn btn-ghost">Сбросить</a>
+    </div>
   </div>
 </form>
 
@@ -65,16 +85,16 @@
       </tr>
     </thead>
     <tbody>
-    {% for o in orders %}
+    {% for order in orders %}
       <tr>
-        <td>#{{ o.id }}</td>
-        <td>{{ o.order_date.strftime('%d.%m.%Y') if o.order_date else '—' }}</td>
-        <td>{{ o.address_short }}</td>
-        <td>{{ o.equip_type_name }}</td>
-        <td><span class="badge {{ o.status_badge_class }}">{{ o.status_name }}</span></td>
-        <td>{{ o.sum_amount or 0 }} ₽</td>
-        <td>{{ o.assignee_name or '—' }}</td>
-        <td><a href="/admin/orders/{{ o.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+        <td>#{{ order.order_number or order.id }}</td>
+        <td>{{ order.order_date.strftime('%d.%m.%Y') if order.order_date else '—' }}</td>
+        <td>{{ order.address_short }}</td>
+        <td>{{ order.equip_type_name }}</td>
+        <td><span class="badge {{ order.status_badge_class }}">{{ order.status_name }}</span></td>
+        <td>{{ order.sum_amount or 0 }} ₽</td>
+        <td>{{ order.assignee_name or '—' }}</td>
+        <td><a href="/admin/orders/{{ order.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
       </tr>
     {% endfor %}
     </tbody>

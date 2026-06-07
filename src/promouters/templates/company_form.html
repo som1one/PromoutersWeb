@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block page_title %}Данные компании — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Данные компании</h1>
+    <p class="page-subtitle">Черновик карточки компании из старой платформы</p>
+  </div>
+</div>
+
+<form method="post" action="/admin/company/form" enctype="multipart/form-data" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Сайт</label>
+      <input type="url" name="website" value="{{ form_data.website or '' }}" placeholder="https://example.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Телефон</label>
+      <input type="tel" name="phone_number" value="{{ form_data.phone_number or '' }}" placeholder="+375652345667">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Соцсети</label>
+    <input type="text" name="social_networks" value="{{ ', '.join(form_data.social_networks) if form_data.social_networks else '' }}" placeholder="vk.com/..., instagram.com/...">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Категории</label>
+    <div class="chip-row" style="flex-wrap:wrap;">
+      {% for category in categories %}
+      <label class="chip {% if category in form_data.categories %}is-active{% endif %}" style="display:flex; gap:8px; align-items:center;">
+        <input type="checkbox" name="categories" value="{{ category }}" {% if category in form_data.categories %}checked{% endif %}>
+        {{ category }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Описание</label>
+    <textarea name="description" rows="4">{{ form_data.description or '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Фотографии</label>
+    <input type="file" name="photos" accept="image/*" multiple>
+    {% if form_data.photos %}
+    <p class="muted" style="margin-top:8px;">Сохранено файлов: {{ form_data.photos|length }}</p>
+    {% endif %}
+  </div>
+
+  <div class="form-group">
+    <label style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" name="prepayment_available" {% if form_data.prepayment_available %}checked{% endif %}>
+      Доступна предоплата
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">Сохранить</button>
+  </div>
+</form>
+{% endblock %}

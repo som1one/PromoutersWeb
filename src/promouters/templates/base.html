@@ -64,7 +64,7 @@
         <a href="/admin/masters" class="nav-link {% if active_page == 'masters' %}active{% endif %}">👥 Мастера</a>
         <a href="/admin/cities" class="nav-link {% if active_page == 'cities' %}active{% endif %}">🏙 Города</a>
         <a href="/admin/branches" class="nav-link {% if active_page == 'branches' %}active{% endif %}">🏢 Филиалы</a>
-        <a href="/admin/commission" class="nav-link {% if active_page == 'commission' %}active{% endif %}">💼 Комиссии</a>
+        <a href="/admin/expense-plans" class="nav-link {% if active_page == 'expense_plans' %}active{% endif %}">💸 Расходы</a>
         <a href="/admin/users" class="nav-link {% if active_page == 'users' %}active{% endif %}">🧑‍💻 Пользователи</a>
         <a href="/admin/audit" class="nav-link {% if active_page == 'audit' %}active{% endif %}">🧾 Аудит</a>
       </div>
@@ -72,6 +72,7 @@
       <div class="nav-group">
         <div class="nav-group-title">Управление</div>
         <a href="/admin/masters" class="nav-link {% if active_page == 'masters' %}active{% endif %}">👥 Мастера</a>
+        <a href="/admin/expense-plans" class="nav-link {% if active_page == 'expense_plans' %}active{% endif %}">💸 Расходы</a>
         <a href="/admin/users" class="nav-link {% if active_page == 'users' %}active{% endif %}">🧑‍💻 Пользователи</a>
       </div>
       {% elif role in ['director','ad_director'] %}
@@ -101,6 +102,9 @@
       {# Notifications: everyone #}
       <div class="nav-group">
         <div class="nav-group-title">Прочее</div>
+        {% if role in ['owner','director','dispatcher','branch_manager','ad_director','master'] %}
+        <a href="/admin/company/form" class="nav-link {% if active_page == 'company' %}active{% endif %}">🏢 Компания</a>
+        {% endif %}
         <a href="/admin/notifications" class="nav-link {% if active_page == 'notifications' %}active{% endif %}">
           🔔 Уведомления
           {% if unread_count and unread_count > 0 %}<span class="badge badge-info" style="margin-left:auto;">{{ unread_count }}</span>{% endif %}

@@ -14,7 +14,7 @@
         Статус: <span class="badge {% if plan.status.value == 'approved' %}badge-success{% elif plan.status.value == 'rejected' %}badge-danger{% elif plan.status.value == 'submitted' %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(plan.status) }}</span>
         · Сумма: <b>{{ '%.2f'|format(plan.total_amount or 0) }} {{ plan.currency }}</b>
       {% else %}
-        Заполните статьи расходов и отправьте на согласование собственнику
+        Сохраняйте черновик расходов и при необходимости вставляйте строки прямо из Google Sheets
       {% endif %}
     </p>
   </div>
@@ -52,6 +52,13 @@
     <label class="form-label">Комментарий</label>
     <textarea name="comment" rows="2" {% if not is_editable %}readonly{% endif %}>{{ plan.comment or '' if plan else '' }}</textarea>
   </div>
+  {% if is_editable %}
+  <div class="form-group">
+    <label class="form-label">Вставка из Google Sheets</label>
+    <textarea name="sheet_rows" rows="6" placeholder="Название[TAB]Категория[TAB]Кол-во[TAB]Цена[TAB]Комментарий&#10;Промоутер Иванов[TAB]Промо[TAB]1[TAB]2500[TAB]Смена 08.06&#10;Листовки A5[TAB]Материалы[TAB]5000[TAB]2.4[TAB]">{{ sheet_rows or '' }}</textarea>
+    <p class="muted" style="margin-top:8px;">Можно вставлять строки из таблицы табами: <code>Название + Сумма</code>, <code>Название + Категория + Сумма</code> или полный формат <code>Название + Категория + Кол-во + Цена + Комментарий</code>. Черновик сохраняется без согласования, пока вы не отправите его дальше.</p>
+  </div>
+  {% endif %}
 
   <h3 class="card-title" style="margin: 16px 0 8px;">Статьи расходов</h3>
   <div class="table-wrap">
@@ -96,7 +103,7 @@
   {% endif %}
 
   <div class="form-actions">
-    {% if is_editable %}<button type="submit" class="btn">{% if is_new %}Создать{% else %}Сохранить{% endif %}</button>{% endif %}
+    {% if is_editable %}<button type="submit" class="btn">Сохранить черновик</button>{% endif %}
     {% if plan and is_editable and not is_new %}
     <button type="submit" formaction="/admin/expense-plans/{{ plan.id }}/submit" class="btn btn-secondary">Отправить на согласование</button>
     {% endif %}
@@ -113,7 +120,7 @@
       {% for ap in plan.approvals %}
         <tr>
           <td data-label="Утверждающий">{{ ap.approver.first_name }} {{ ap.approver.last_name }}</td>
-          <td data-label="Решение"><span class="badge {% if ap.decision.value == 'approved' %}badge-success{% elif ap.decision.value == 'rejected' %}badge-danger{% else %}badge-info{% endif %}">{{ ap.decision.value }}</span></td>
+          <td data-label="Решение"><span class="badge {% if ap.decision.value == 'approved' %}badge-success{% elif ap.decision.value == 'rejected' %}badge-danger{% else %}badge-info{% endif %}">{{ status_label(ap.decision) }}</span></td>
           <td data-label="Комментарий">{{ ap.comment or '—' }}</td>
           <td data-label="Время">{{ ap.decided_at.strftime('%d.%m %H:%M') if ap.decided_at else '—' }}</td>
         </tr>

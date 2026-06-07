@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session, joinedload
 from promouters.db.session import get_db
 from promouters.models.enums import UserStatus
 from promouters.models.users import Role, User
+from promouters.services import users as users_svc
 from promouters.services.access import is_owner
-from promouters.services.audit import write_audit_log
 from promouters.web.deps import render, require_roles
 
 
@@ -41,12 +41,16 @@ async def promoters_list(
     if not is_owner(user) and user.branch_id is not None:
         stmt = stmt.where(User.branch_id == user.branch_id)
     promoters = list(db.scalars(stmt))
+    deleted = request.query_params.get("deleted")
+    error_code = request.query_params.get("error")
     return render(
         request,
         "promoters.html",
         user=user,
         active_page="promoters",
         promoters=promoters,
+        flash_success="Промоутер архивирован." if deleted else None,
+        flash_error="Не удалось архивировать промоутера." if error_code == "delete-failed" else None,
     )
 
 
@@ -104,24 +108,8 @@ async def promoter_delete(
     if not is_owner(user) and user.branch_id and promoter.branch_id != user.branch_id:
         return RedirectResponse("/admin/promoters?error=forbidden", status_code=302)
 
-    before = {
-        "id": str(promoter.id),
-        "status": promoter.status.value,
-        "first_name": promoter.first_name,
-        "last_name": promoter.last_name,
-        "branch_id": str(promoter.branch_id) if promoter.branch_id else None,
-    }
-    promoter.status = UserStatus.INACTIVE
-    db.add(promoter)
-    write_audit_log(
-        db,
-        actor_user=user,
-        branch_id=promoter.branch_id,
-        entity_type="user",
-        entity_id=str(promoter.id),
-        action="promoter.deactivate",
-        payload={"before": before, "after": {**before, "status": UserStatus.INACTIVE.value}},
-        request=request,
-    )
-    db.commit()
-    return RedirectResponse("/admin/promoters", status_code=302)
+    try:
+        users_svc.archive_user(db, user, promoter, request=request, action="promoter.archive")
+    except Exception:  # noqa: BLE001
+        return RedirectResponse("/admin/promoters?error=delete-failed", status_code=302)
+    return RedirectResponse("/admin/promoters?deleted=1", status_code=302)
