@@ -209,6 +209,17 @@ def test_cash_accept_and_extended_stats(client, db_session, seed_roles, seed_bra
     assert "conversion" in body
 
 
+def test_stats_page_accepts_blank_city_filter(client, db_session, seed_roles, seed_branch):
+    owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_stats_blank")
+    _make_city(db_session)
+    _login_as_web_user(client, owner)
+
+    response = client.get("/admin/stats", params={"preset": "month", "city_id": ""})
+
+    assert response.status_code == 200
+    assert "Статистика" in response.text
+
+
 def test_legacy_redirects_resolve_current_pages(client, db_session, seed_roles, seed_branch):
     owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_legacy")
     master = _make_user(

@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _parse_optional_int(value: str | int | None) -> int | None:
+    if value is None or isinstance(value, int):
+        return value
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        return int(normalized)
+    except ValueError:
+        return None
+
+
 def _empty_dashboard() -> dict:
     """Возвращает пустой каркас dashboard для случаев когда расчёт упал.
 
@@ -74,13 +86,14 @@ async def stats_view(
     preset: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
-    city_id: int | None = None,
+    city_id: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(
         require_roles("owner", "branch_manager", "ad_director", "director", "dispatcher")
     ),
 ):
     # Если нажата кнопка быстрого выбора — пересчитаем даты по пресету.
+    resolved_city_id = _parse_optional_int(city_id)
     if preset and preset in stats_svc.PERIOD_PRESETS:
         df, dt = stats_svc.get_period_bounds(preset)
         effective_period = preset
@@ -89,7 +102,7 @@ async def stats_view(
     error_message: str | None = None
     try:
         dashboard = stats_svc.calculate_dashboard_stats(
-            db, date_from=df, date_to=dt, city_id=city_id
+            db, date_from=df, date_to=dt, city_id=resolved_city_id
         )
     except Exception:  # noqa: BLE001
         logger.exception("statistics.calculate_dashboard_stats failed")
@@ -113,6 +126,6 @@ async def stats_view(
         date_to=dt.date().isoformat(),
         available_periods=tuple(stats_svc.PERIOD_PRESETS) + ("custom",),
         available_cities=available_cities,
-        filter={"city_id": city_id, "period": effective_period},
+        filter={"city_id": resolved_city_id, "period": effective_period},
         flash_error=error_message,
     )
