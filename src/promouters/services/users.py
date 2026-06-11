@@ -218,6 +218,7 @@ def create_user(
         first_name=payload.first_name,
         last_name=payload.last_name,
         middle_name=payload.middle_name,
+        tg_id=payload.tg_id,
         status=payload.status,
         is_superuser=role_code == RoleCode.OWNER,
         role_id=role.id,
@@ -282,7 +283,7 @@ def update_user(
     role_code, branch_id = _resolve_update_role_and_branch(db, actor_user, user, payload)
     before = serialize_user_for_audit(user)
 
-    for field in ("username", "email", "first_name", "last_name", "middle_name", "status"):
+    for field in ("username", "email", "first_name", "last_name", "middle_name", "status", "tg_id"):
         if field in data:
             setattr(user, field, data[field])
 

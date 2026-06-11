@@ -35,6 +35,7 @@ class UserCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
+    tg_id: int | None = None
     status: UserStatus = UserStatus.ACTIVE
     is_superuser: bool = False
     role_id: UUID
@@ -49,6 +50,7 @@ class UserUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
+    tg_id: int | None = None
     status: UserStatus | None = None
     is_superuser: bool | None = None
     role_id: UUID | None = None
