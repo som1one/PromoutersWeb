@@ -23,6 +23,8 @@ class UserRead(BaseModel):
     role_name: str | None = None
     branch_name: str | None = None
     branch_city: str | None = None
+    city_id: int | None = None
+    city_name: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -40,6 +42,7 @@ class UserCreate(BaseModel):
     is_superuser: bool = False
     role_id: UUID
     branch_id: UUID | None = None
+    city_id: int | None = None
 
 
 class UserUpdate(BaseModel):
@@ -55,6 +58,7 @@ class UserUpdate(BaseModel):
     is_superuser: bool | None = None
     role_id: UUID | None = None
     branch_id: UUID | None = None
+    city_id: int | None = None
 
 
 class CurrentUserUpdate(BaseModel):

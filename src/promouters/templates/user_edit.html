@@ -57,6 +57,17 @@
   </div>
   <div class="form-row">
     <div class="form-group">
+      <label class="form-label">Город <small style="opacity:.6">(для мастера, без филиала)</small></label>
+      <select name="city_id">
+        <option value="">— не выбран —</option>
+        {% for c in cities %}
+        <option value="{{ c.id }}" {% if target.city_id and target.city_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
       <label class="form-label">Статус</label>
       <select name="status_code">
         <option value="active" {% if target.status.value == 'active' %}selected{% endif %}>Активен</option>

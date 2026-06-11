@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from promouters.db.session import get_db
 from promouters.models.enums import UserStatus
+from promouters.models.service_ops import City
 from promouters.models.users import Branch, Role, User
 from promouters.schemas.users import UserCreate, UserUpdate
 from promouters.services import users as users_svc
@@ -120,6 +121,7 @@ async def user_register_form(
 ):
     roles = list(db.scalars(select(Role).order_by(Role.name)))
     branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+    cities = list(db.scalars(select(City).order_by(City.name)))
     return render(
         request,
         "register.html",
@@ -127,6 +129,7 @@ async def user_register_form(
         active_page="users",
         roles=roles,
         branches=branches,
+        cities=cities,
     )
 
 
@@ -142,6 +145,7 @@ async def user_register_submit(
     tg_id: str = Form(default=""),
     username: str = Form(...),
     branch_id: str = Form(default=""),
+    city_id: str = Form(default=""),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "branch_manager")),
 ):
@@ -149,6 +153,7 @@ async def user_register_submit(
     if role is None:
         roles = list(db.scalars(select(Role).order_by(Role.name)))
         branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+        cities = list(db.scalars(select(City).order_by(City.name)))
         return render(
             request,
             "register.html",
@@ -156,6 +161,7 @@ async def user_register_submit(
             active_page="users",
             roles=roles,
             branches=branches,
+            cities=cities,
             flash_error="Роль не найдена",
         )
 
@@ -165,6 +171,13 @@ async def user_register_submit(
             branch_uuid = UUID(branch_id)
         except ValueError:
             branch_uuid = None
+
+    city_int: int | None = None
+    if city_id and city_id.strip():
+        try:
+            city_int = int(city_id.strip())
+        except ValueError:
+            city_int = None
 
     payload = UserCreate(
         username=username.strip(),
@@ -178,6 +191,7 @@ async def user_register_submit(
         status=UserStatus.ACTIVE,
         role_id=role.id,
         branch_id=branch_uuid,
+        city_id=city_int,
     )
     try:
         users_svc.create_user(db, user, payload, request=request)
@@ -185,6 +199,7 @@ async def user_register_submit(
         logger.exception("user.create failed")
         roles = list(db.scalars(select(Role).order_by(Role.name)))
         branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+        cities = list(db.scalars(select(City).order_by(City.name)))
         message = getattr(exc, "detail", None) or str(exc) or "Не удалось создать пользователя"
         return render(
             request,
@@ -193,6 +208,7 @@ async def user_register_submit(
             active_page="users",
             roles=roles,
             branches=branches,
+            cities=cities,
             flash_error=str(message),
         )
     return _flash_success_redirect("/admin/users")
@@ -208,6 +224,7 @@ async def user_detail(
     target = users_svc.get_user_for_actor(db, user, user_id)
     roles = list(db.scalars(select(Role).order_by(Role.name)))
     branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+    cities = list(db.scalars(select(City).order_by(City.name)))
     return render(
         request,
         "user_edit.html",
@@ -216,6 +233,7 @@ async def user_detail(
         target=target,
         roles=roles,
         branches=branches,
+        cities=cities,
     )
 
 
@@ -230,6 +248,7 @@ async def user_update(
     role_code: str = Form(...),
     tg_id: str = Form(default=""),
     branch_id: str = Form(default=""),
+    city_id: str = Form(default=""),
     status_code: str = Form(default="active"),
     password: str = Form(default=""),
     db: Session = Depends(get_db),
@@ -255,6 +274,7 @@ async def user_update(
         "tg_id": int(tg_id.strip()) if tg_id.strip() else None,
         "role_id": role.id,
         "branch_id": branch_uuid,
+        "city_id": int(city_id.strip()) if city_id.strip() else None,
         "status": UserStatus(status_code) if status_code in UserStatus.__members__.values() or status_code in [s.value for s in UserStatus] else UserStatus.ACTIVE,
     }
     if password:
@@ -267,6 +287,7 @@ async def user_update(
         logger.exception("user.update failed")
         roles = list(db.scalars(select(Role).order_by(Role.name)))
         branches = list(db.scalars(select(Branch).order_by(Branch.name)))
+        cities = list(db.scalars(select(City).order_by(City.name)))
         message = getattr(exc, "detail", None) or str(exc) or "Не удалось сохранить"
         return render(
             request,
@@ -276,6 +297,7 @@ async def user_update(
             target=target,
             roles=roles,
             branches=branches,
+            cities=cities,
             flash_error=str(message),
         )
     return RedirectResponse("/admin/users", status_code=302)

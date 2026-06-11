@@ -47,6 +47,8 @@ def to_user_read(user: User) -> UserRead:
         role_name=user.role.name if user.role else None,
         branch_name=user.branch.name if user.branch else None,
         branch_city=user.branch.city if user.branch else None,
+        city_id=user.city_id,
+        city_name=user.city_rel.name if user.city_rel else None,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -223,6 +225,7 @@ def create_user(
         is_superuser=role_code == RoleCode.OWNER,
         role_id=role.id,
         branch_id=branch_id,
+        city_id=payload.city_id,
     )
     db.add(user)
     db.flush()
@@ -298,6 +301,8 @@ def update_user(
         user.role_id = data["role_id"]
     if "branch_id" in data:
         user.branch_id = branch_id
+    if "city_id" in data:
+        user.city_id = data["city_id"]
 
     user.is_superuser = role_code == RoleCode.OWNER or user.is_superuser
     if role_code != RoleCode.OWNER:

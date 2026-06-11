@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, ForeignKey, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from promouters.db.base import Base
@@ -70,9 +70,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False)
     branch_id: Mapped[str | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))
+    city_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True, index=True)
 
     role: Mapped["Role"] = relationship(back_populates="users")
     branch: Mapped["Branch | None"] = relationship(back_populates="users")
+    city_rel: Mapped["City | None"] = relationship("City", foreign_keys=[city_id], lazy="select")
     assigned_routes: Mapped[list["Route"]] = relationship(
         back_populates="promoter",
         foreign_keys="Route.promoter_id",
