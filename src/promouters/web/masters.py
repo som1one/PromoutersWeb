@@ -24,11 +24,12 @@ def _users_by_role(
     actor: User,
     role_code: str,
 ) -> list[User]:
+    from promouters.models.enums import UserStatus
     stmt = (
         select(User)
         .options(joinedload(User.role), joinedload(User.branch))
         .join(Role)
-        .where(Role.code == role_code)
+        .where(Role.code == role_code, User.status == UserStatus.ACTIVE)
         .order_by(User.last_name, User.first_name)
     )
     if not is_owner(actor) and actor.branch_id is not None:
