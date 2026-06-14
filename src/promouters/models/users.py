@@ -63,6 +63,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # PJ2-derived fields (bridge for VK bot compatibility)
     tg_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True, index=True)
+    vk_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True, index=True)
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     master_percentage: Mapped[float | None] = mapped_column(Float, nullable=True)

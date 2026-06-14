@@ -16,7 +16,7 @@ class MasterRequestCreate(BaseModel):
     estimated_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2, max_digits=12)
     currency: str = Field(default="RUB", min_length=3, max_length=3)
     branch_id: UUID
-    assignee_id: UUID | None = None
+    assignee_id: UUID
     requested_at: datetime | None = None
 
 

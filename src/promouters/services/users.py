@@ -38,6 +38,8 @@ def to_user_read(user: User) -> UserRead:
         first_name=user.first_name,
         last_name=user.last_name,
         middle_name=user.middle_name,
+        tg_id=user.tg_id,
+        vk_id=user.vk_id,
         status=user.status.value,
         is_superuser=user.is_superuser,
         last_login_at=user.last_login_at,
@@ -221,6 +223,7 @@ def create_user(
         last_name=payload.last_name,
         middle_name=payload.middle_name,
         tg_id=payload.tg_id,
+        vk_id=payload.vk_id,
         status=payload.status,
         is_superuser=role_code == RoleCode.OWNER,
         role_id=role.id,
@@ -286,7 +289,7 @@ def update_user(
     role_code, branch_id = _resolve_update_role_and_branch(db, actor_user, user, payload)
     before = serialize_user_for_audit(user)
 
-    for field in ("username", "email", "first_name", "last_name", "middle_name", "status", "tg_id"):
+    for field in ("username", "email", "first_name", "last_name", "middle_name", "status", "tg_id", "vk_id"):
         if field in data:
             setattr(user, field, data[field])
 

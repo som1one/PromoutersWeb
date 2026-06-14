@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from promouters.models.enums import UserStatus
 
@@ -14,6 +14,8 @@ class UserRead(BaseModel):
     first_name: str
     last_name: str
     middle_name: str | None
+    tg_id: int | None = None
+    vk_id: str | None = None
     status: str
     is_superuser: bool
     last_login_at: datetime | None
@@ -38,11 +40,18 @@ class UserCreate(BaseModel):
     last_name: str = Field(min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
     tg_id: int | None = None
+    vk_id: str | None = Field(default=None, max_length=100)
     status: UserStatus = UserStatus.ACTIVE
     is_superuser: bool = False
     role_id: UUID
     branch_id: UUID | None = None
     city_id: int | None = None
+
+    @model_validator(mode="after")
+    def require_tg_or_vk_id(self) -> "UserCreate":
+        if not self.tg_id and not self.vk_id:
+            raise ValueError("Необходимо указать Telegram ID или VK ID")
+        return self
 
 
 class UserUpdate(BaseModel):
@@ -54,6 +63,7 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
     tg_id: int | None = None
+    vk_id: str | None = Field(default=None, max_length=100)
     status: UserStatus | None = None
     is_superuser: bool | None = None
     role_id: UUID | None = None
