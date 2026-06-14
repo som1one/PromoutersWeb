@@ -117,7 +117,7 @@ def _parse_order_date(value: str | None) -> datetime | None:
 
 def _order_payload_from_form(
     *,
-    city_id: int | None,
+    city_id: str | int | None,
     street: str | None,
     house: str | None,
     flat: str | None,
@@ -130,23 +130,46 @@ def _order_payload_from_form(
     client_name: str | None,
     client_phone: str | None,
     assigned_to: str | None,
-    sum_amount: float | None,
-    sd_price: float | None = None,
-    zpch_sum: float | None = None,
+    sum_amount: str | float | None,
+    sd_price: str | float | None = None,
+    zpch_sum: str | float | None = None,
     comment: str | None = None,
     status: str | None = None,
     is_warranty: bool = False,
 ) -> dict:
     # Parse assigned_to: empty string → None, otherwise int
     parsed_assigned_to: int | None = None
-    if assigned_to and assigned_to.strip():
+    if assigned_to and str(assigned_to).strip():
         try:
-            parsed_assigned_to = int(assigned_to.strip())
+            parsed_assigned_to = int(str(assigned_to).strip())
         except ValueError:
             parsed_assigned_to = None
 
+    # Parse numeric fields: empty string → None
+    def _parse_int(val: str | int | None) -> int | None:
+        if val is None:
+            return None
+        s = str(val).strip()
+        if not s:
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
+    def _parse_float(val: str | float | None) -> float | None:
+        if val is None:
+            return None
+        s = str(val).strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
     payload = {
-        "city_id": city_id,
+        "city_id": _parse_int(city_id),
         "street": street,
         "house": house,
         "flat": flat,
@@ -159,9 +182,9 @@ def _order_payload_from_form(
         "client_name": client_name,
         "client_phone": client_phone,
         "assigned_to": parsed_assigned_to,
-        "sum_amount": sum_amount,
-        "sd_price": sd_price,
-        "zpch_sum": zpch_sum,
+        "sum_amount": _parse_float(sum_amount),
+        "sd_price": _parse_float(sd_price),
+        "zpch_sum": _parse_float(zpch_sum),
         "comment": comment,
         "status": status,
         "is_warranty": is_warranty,
@@ -279,7 +302,7 @@ async def order_create_form(
 
 @router.post("/create")
 async def order_create_submit(
-    city_id: int | None = Form(None),
+    city_id: str | None = Form(None),
     street: str | None = Form(None),
     house: str | None = Form(None),
     flat: str | None = Form(None),
@@ -292,9 +315,9 @@ async def order_create_submit(
     client_name: str | None = Form(None),
     client_phone: str | None = Form(None),
     assigned_to: str | None = Form(None),
-    sum_amount: float | None = Form(None),
-    sd_price: float | None = Form(None),
-    zpch_sum: float | None = Form(None),
+    sum_amount: str | None = Form(None),
+    sd_price: str | None = Form(None),
+    zpch_sum: str | None = Form(None),
     comment: str | None = Form(None),
     is_warranty: bool = Form(False),
     db: Session = Depends(get_db),
@@ -397,9 +420,9 @@ async def order_update(
     order_id: int,
     status: str | None = Form(None),
     assigned_to: str | None = Form(None),
-    sum_amount: float | None = Form(None),
-    sd_price: float | None = Form(None),
-    zpch_sum: float | None = Form(None),
+    sum_amount: str | None = Form(None),
+    sd_price: str | None = Form(None),
+    zpch_sum: str | None = Form(None),
     comment: str | None = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_ROLES)),  # noqa: ARG001
@@ -407,21 +430,32 @@ async def order_update(
     order = orders_svc.get_order(db, order_id)
     if not order:
         return RedirectResponse("/admin/orders?error=notfound", status_code=302)
-    # Parse assigned_to from string to int
-    parsed_assigned_to: int | None = None
-    if assigned_to and assigned_to.strip():
+
+    # Parse numeric fields from form strings
+    def _safe_int(val: str | None) -> int | None:
+        if not val or not val.strip():
+            return None
         try:
-            parsed_assigned_to = int(assigned_to.strip())
+            return int(val.strip())
         except ValueError:
-            parsed_assigned_to = None
+            return None
+
+    def _safe_float(val: str | None) -> float | None:
+        if not val or not val.strip():
+            return None
+        try:
+            return float(val.strip())
+        except ValueError:
+            return None
+
     payload = {
         key: value
         for key, value in {
             "status": status,
-            "assigned_to": parsed_assigned_to,
-            "sum_amount": sum_amount,
-            "sd_price": sd_price,
-            "zpch_sum": zpch_sum,
+            "assigned_to": _safe_int(assigned_to),
+            "sum_amount": _safe_float(sum_amount),
+            "sd_price": _safe_float(sd_price),
+            "zpch_sum": _safe_float(zpch_sum),
             "comment": comment,
         }.items()
         if value is not None and value != ""
@@ -433,7 +467,7 @@ async def order_update(
 @router.post("/{order_id}")
 async def order_edit_submit(
     order_id: int,
-    city_id: int | None = Form(None),
+    city_id: str | None = Form(None),
     street: str | None = Form(None),
     house: str | None = Form(None),
     flat: str | None = Form(None),
@@ -446,9 +480,9 @@ async def order_edit_submit(
     client_name: str | None = Form(None),
     client_phone: str | None = Form(None),
     assigned_to: str | None = Form(None),
-    sum_amount: float | None = Form(None),
-    sd_price: float | None = Form(None),
-    zpch_sum: float | None = Form(None),
+    sum_amount: str | None = Form(None),
+    sd_price: str | None = Form(None),
+    zpch_sum: str | None = Form(None),
     comment: str | None = Form(None),
     status: str | None = Form(None),
     is_warranty: bool = Form(False),

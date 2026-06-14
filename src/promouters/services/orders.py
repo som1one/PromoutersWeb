@@ -128,12 +128,12 @@ def delete_order(db: Session, order: Order) -> None:
 
 
 def list_masters_for_assignment(db: Session) -> list[User]:
-    """Active users with role.code == 'master' (or PJ2 master flag) who have a tg_id."""
+    """Active users with role.code in ('master', 'branch_manager') who have a tg_id."""
     from promouters.models.users import Role
     stmt = (
         select(User)
         .join(Role)
-        .where(Role.code == "master", User.tg_id.is_not(None))
+        .where(Role.code.in_(["master", "branch_manager"]), User.tg_id.is_not(None))
         .order_by(User.first_name.asc(), User.last_name.asc())
     )
     return list(db.scalars(stmt))
