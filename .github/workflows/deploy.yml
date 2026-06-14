@@ -170,11 +170,7 @@ jobs:
             cd "$APP_DIR"
             "$APP_DIR/.venv/bin/python" -m alembic upgrade head
 
-            echo ">> [3.5/7] Seed демо-данных (идемпотентно)"
-            cd "$APP_DIR"
-            PYTHONPATH=src "$APP_DIR/.venv/bin/python" scripts/seed_demo_data.py || {
-              echo "[WARN] seed_demo_data.py упал — продолжаем без демо-данных"
-            }
+            echo ">> [3.5/7] Skipped (seed disabled)"
 
             echo ">> [4/7] Frontend build"
             cd "$APP_DIR/frontend"
@@ -237,12 +233,7 @@ jobs:
               fi
             done
 
-            echo ">> Подключение к БД и наличие демо-пользователя"
-            if sudo -u postgres psql -d "$DB_NAME" -tAc "SELECT 1 FROM users WHERE phone='+79990000001'" 2>/dev/null | grep -q 1; then
-              echo "  [OK]   demo user +79990000001 в БД"
-            else
-              echo "  [WARN] demo user +79990000001 не найден (возможно seed не отработал)"
-            fi
+            echo ">> Подключение к БД"
             DEMO_COUNT=$(sudo -u postgres psql -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM users" 2>/dev/null | tr -d ' ' || echo "?")
             echo "  [info] users в БД: $DEMO_COUNT"
 
@@ -257,26 +248,8 @@ jobs:
             check "/admin/login"   200 "http://127.0.0.1/admin/login"
             check "/openapi.json"  200 "http://127.0.0.1/openapi.json"
 
-            echo ">> Логин под демо-owner"
-            COOKIE_JAR=$(mktemp)
-            LOGIN_CODE=$(curl -s -o /dev/null -w '%{http_code}' -c "$COOKIE_JAR" \
-              -d "phone=%2B79990000001&password=demo12345&next=" \
-              http://127.0.0.1/admin/login || echo "000")
-            if [ "$LOGIN_CODE" = "200" ] || [ "$LOGIN_CODE" = "302" ] || [ "$LOGIN_CODE" = "303" ]; then
-              echo "  [OK]   POST /admin/login  $LOGIN_CODE"
-              # под cookie должны открываться owner-страницы
-              for path in /admin/ /admin/users /admin/routes; do
-                CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" "http://127.0.0.1$path" || echo "000")
-                if [ "$CODE" = "200" ]; then
-                  echo "  [OK]   GET $path under owner cookie  $CODE"
-                else
-                  echo "  [WARN] GET $path under owner cookie  $CODE (ожидался 200)"
-                fi
-              done
-            else
-              echo "  [WARN] Не удалось авторизоваться под демо-owner (HTTP $LOGIN_CODE) — возможно seed не выполнен"
-            fi
-            rm -f "$COOKIE_JAR"
+            echo ">> Логин"
+            echo "  [info] demo-owner login check skipped (seed disabled)"
 
             echo ">> Frontend dist собран?"
             if [ -f "$APP_DIR/frontend/dist/index.html" ]; then

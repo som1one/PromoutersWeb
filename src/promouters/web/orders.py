@@ -129,7 +129,7 @@ def _order_payload_from_form(
     source: str | None,
     client_name: str | None,
     client_phone: str | None,
-    assigned_to: int | None,
+    assigned_to: str | None,
     sum_amount: float | None,
     sd_price: float | None = None,
     zpch_sum: float | None = None,
@@ -137,6 +137,14 @@ def _order_payload_from_form(
     status: str | None = None,
     is_warranty: bool = False,
 ) -> dict:
+    # Parse assigned_to: empty string → None, otherwise int
+    parsed_assigned_to: int | None = None
+    if assigned_to and assigned_to.strip():
+        try:
+            parsed_assigned_to = int(assigned_to.strip())
+        except ValueError:
+            parsed_assigned_to = None
+
     payload = {
         "city_id": city_id,
         "street": street,
@@ -150,7 +158,7 @@ def _order_payload_from_form(
         "source": source,
         "client_name": client_name,
         "client_phone": client_phone,
-        "assigned_to": assigned_to,
+        "assigned_to": parsed_assigned_to,
         "sum_amount": sum_amount,
         "sd_price": sd_price,
         "zpch_sum": zpch_sum,
@@ -283,7 +291,7 @@ async def order_create_submit(
     source: str | None = Form(None),
     client_name: str | None = Form(None),
     client_phone: str | None = Form(None),
-    assigned_to: int | None = Form(None),
+    assigned_to: str | None = Form(None),
     sum_amount: float | None = Form(None),
     sd_price: float | None = Form(None),
     zpch_sum: float | None = Form(None),
@@ -388,7 +396,7 @@ async def order_edit_form(
 async def order_update(
     order_id: int,
     status: str | None = Form(None),
-    assigned_to: int | None = Form(None),
+    assigned_to: str | None = Form(None),
     sum_amount: float | None = Form(None),
     sd_price: float | None = Form(None),
     zpch_sum: float | None = Form(None),
@@ -399,11 +407,18 @@ async def order_update(
     order = orders_svc.get_order(db, order_id)
     if not order:
         return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+    # Parse assigned_to from string to int
+    parsed_assigned_to: int | None = None
+    if assigned_to and assigned_to.strip():
+        try:
+            parsed_assigned_to = int(assigned_to.strip())
+        except ValueError:
+            parsed_assigned_to = None
     payload = {
         key: value
         for key, value in {
             "status": status,
-            "assigned_to": assigned_to,
+            "assigned_to": parsed_assigned_to,
             "sum_amount": sum_amount,
             "sd_price": sd_price,
             "zpch_sum": zpch_sum,
@@ -430,7 +445,7 @@ async def order_edit_submit(
     source: str | None = Form(None),
     client_name: str | None = Form(None),
     client_phone: str | None = Form(None),
-    assigned_to: int | None = Form(None),
+    assigned_to: str | None = Form(None),
     sum_amount: float | None = Form(None),
     sd_price: float | None = Form(None),
     zpch_sum: float | None = Form(None),
