@@ -94,7 +94,14 @@
         <td><span class="badge {{ order.status_badge_class }}">{{ order.status_name }}</span></td>
         <td>{{ order.sum_amount or 0 }} ₽</td>
         <td>{{ order.assignee_name or '—' }}</td>
-        <td><a href="/admin/orders/{{ order.id }}" class="btn btn-sm btn-ghost">Открыть</a></td>
+        <td>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a href="/admin/orders/{{ order.id }}" class="btn btn-sm btn-ghost">Открыть</a>
+            {% if can_close and order.status_name != 'Принята в кассу' and order.status_code not in ['cash_accepted','cancelled'] %}
+            <a href="/admin/orders/{{ order.id }}/close" class="btn btn-sm btn-danger">Закрыть</a>
+            {% endif %}
+          </div>
+        </td>
       </tr>
     {% endfor %}
     </tbody>

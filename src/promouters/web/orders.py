@@ -55,6 +55,7 @@ def _decorate(order, masters_map: dict[int, User] | None = None):
         order_number=order.order_number,
         order_date=order.order_date,
         status=order.status,
+        status_code=order.status,
         status_name=get_status_name_ru(order.status),
         status_badge_class=_status_badge_class(order.status),
         equip_type=order.equip_type,
@@ -230,6 +231,9 @@ async def orders_list(
         }
     decorated = [_decorate(order, masters_map) for order in raw_orders]
 
+    role = user.role.code if user.role else None
+    can_close = role in ("owner", "branch_manager", "dispatcher")
+
     return render(
         request,
         "orders_list.html",
@@ -237,6 +241,7 @@ async def orders_list(
         active_page="orders",
         orders=decorated,
         total=len(decorated),
+        can_close=can_close,
         filter={
             "status": status or "",
             "city_id": city_id,
@@ -530,3 +535,73 @@ async def order_delete(
     if order:
         orders_svc.delete_order(db, order)
     return RedirectResponse("/admin/orders?deleted=1", status_code=302)
+
+
+CLOSE_ROLES = ("owner", "branch_manager", "dispatcher")
+
+
+@router.get("/{order_id}/close")
+async def order_close_form(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*CLOSE_ROLES)),
+):
+    order = orders_svc.get_order(db, order_id)
+    if not order:
+        return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+    master_ids = {order.assigned_to} if order.assigned_to else set()
+    masters_map: dict[int, User] = {}
+    if master_ids:
+        from sqlalchemy import select
+        masters_map = {
+            master.tg_id: master
+            for master in db.scalars(select(User).where(User.tg_id.in_(master_ids)))
+        }
+    decorated = _decorate(order, masters_map)
+    return render(
+        request,
+        "order_close.html",
+        user=user,
+        active_page="orders",
+        order=decorated,
+    )
+
+
+@router.post("/{order_id}/close")
+async def order_close_submit(
+    order_id: int,
+    sum_amount: str | None = Form(None),
+    sd_price: str | None = Form(None),
+    zpch_sum: str | None = Form(None),
+    comment: str | None = Form(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*CLOSE_ROLES)),  # noqa: ARG001
+):
+    order = orders_svc.get_order(db, order_id)
+    if not order:
+        return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+
+    def _safe_float(val: str | None) -> float | None:
+        if not val or not val.strip():
+            return None
+        try:
+            return float(val.strip())
+        except ValueError:
+            return None
+
+    payload: dict = {"status": "done_pending_sum"}
+    parsed_sum = _safe_float(sum_amount)
+    parsed_sd = _safe_float(sd_price)
+    parsed_zpch = _safe_float(zpch_sum)
+    if parsed_sum is not None:
+        payload["sum_amount"] = parsed_sum
+    if parsed_sd is not None:
+        payload["sd_price"] = parsed_sd
+    if parsed_zpch is not None:
+        payload["zpch_sum"] = parsed_zpch
+    if comment and comment.strip():
+        payload["comment"] = comment.strip()
+
+    orders_svc.update_order(db, order, payload)
+    return RedirectResponse("/admin/cash", status_code=302)
