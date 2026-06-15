@@ -271,6 +271,32 @@ WantedBy=multi-user.target
     ssh.run("systemctl daemon-reload")
     ssh.run(f"systemctl enable {SERVICE_NAME}")
 
+    print(f"\n>> [7.5/8] Установка systemd unit-файла suupr-telegram-bot")
+    tg_bot_service_content = f"""[Unit]
+Description=Suupr Telegram Bot
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User={APP_USER}
+Group={APP_USER}
+WorkingDirectory={APP_DIR}/Valeriy/PythonProject2
+Environment=PATH={APP_DIR}/.venv/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile={APP_DIR}/Valeriy/PythonProject2/local.env
+ExecStart={APP_DIR}/.venv/bin/python main.py telegram
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+    ssh.upload_text(tg_bot_service_content, "/etc/systemd/system/suupr-telegram-bot.service")
+    ssh.run("systemctl daemon-reload")
+    ssh.run("systemctl enable suupr-telegram-bot")
+
     print("\n>> [8/8] Установка nginx-конфигурации")
     nginx_local = Path(__file__).parent / "nginx-suupr.conf"
     if nginx_local.exists():
@@ -340,6 +366,8 @@ echo "HEAD: $(git rev-parse --short HEAD)"
     )
     ssh.run(f"{APP_DIR}/.venv/bin/python -m pip install --upgrade pip --quiet")
     ssh.run(f"{APP_DIR}/.venv/bin/python -m pip install -e {APP_DIR} --quiet")
+    # Зависимости Telegram бота
+    ssh.run(f"{APP_DIR}/.venv/bin/python -m pip install -r {APP_DIR}/Valeriy/PythonProject2/requirements.txt --quiet")
 
     print("\n>> [3/7] Миграции БД (alembic upgrade head)")
     ssh.run(f"cd {APP_DIR} && {APP_DIR}/.venv/bin/python -m alembic upgrade head")
@@ -360,6 +388,16 @@ echo "HEAD: $(git rev-parse --short HEAD)"
     ssh.run(f"systemctl restart {SERVICE_NAME}")
     time.sleep(3)
     ssh.run(f"systemctl is-active {SERVICE_NAME}")
+
+    print("\n>> [6.5/7] Перезапуск Telegram бота")
+    code, out, _ = ssh.run_quiet(f"[ -f {APP_DIR}/Valeriy/PythonProject2/local.env ] && echo YES || echo NO")
+    if "YES" in out:
+        ssh.run("systemctl restart suupr-telegram-bot")
+        time.sleep(3)
+        ssh.run("systemctl is-active suupr-telegram-bot", check=False)
+    else:
+        print(f"  [SKIP] {APP_DIR}/Valeriy/PythonProject2/local.env не найден — бот не запущен")
+        print(f"  Создайте файл с TELEGRAM_TOKEN и DATABASE_URL, затем: systemctl start suupr-telegram-bot")
 
     print("\n>> [7/7] Перезагрузка nginx и smoke-проверки")
     ssh.run(
@@ -392,6 +430,9 @@ def status(ssh: SSHClient):
     print("\n--- suupr-backend ---")
     ssh.run(f"systemctl is-active {SERVICE_NAME} || true")
     ssh.run(f"systemctl status {SERVICE_NAME} --no-pager -l | head -15 || true", check=False)
+    print("\n--- suupr-telegram-bot ---")
+    ssh.run("systemctl is-active suupr-telegram-bot || true")
+    ssh.run("systemctl status suupr-telegram-bot --no-pager -l | head -15 || true", check=False)
     print("\n--- nginx ---")
     ssh.run("systemctl is-active nginx || true")
     print("\n--- postgresql ---")

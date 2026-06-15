@@ -153,6 +153,32 @@ jobs:
             systemctl daemon-reload
             systemctl enable "$SERVICE_NAME"
 
+            echo ">> [bootstrap] systemd unit suupr-telegram-bot"
+            cat > /etc/systemd/system/suupr-telegram-bot.service <<EOF
+            [Unit]
+            Description=Suupr Telegram Bot
+            After=network.target postgresql.service
+            Wants=postgresql.service
+
+            [Service]
+            Type=simple
+            User=$APP_USER
+            Group=$APP_GROUP
+            WorkingDirectory=$APP_DIR/Valeriy/PythonProject2
+            Environment=PATH=$APP_DIR/.venv/bin:/usr/local/bin:/usr/bin:/bin
+            EnvironmentFile=$APP_DIR/Valeriy/PythonProject2/local.env
+            ExecStart=$APP_DIR/.venv/bin/python main.py telegram
+            Restart=always
+            RestartSec=10
+            StandardOutput=journal
+            StandardError=journal
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            systemctl daemon-reload
+            systemctl enable suupr-telegram-bot
+
             echo ">> [2/7] Python venv + deps"
             # Если .venv существует, но битый (нет pip — например ensurepip упал в прошлый раз) — пересоздать.
             if [ -d "$APP_DIR/.venv" ] && ! "$APP_DIR/.venv/bin/python" -m pip --version >/dev/null 2>&1; then
@@ -165,6 +191,8 @@ jobs:
             # Используем python -m pip — работает даже если bin/pip отсутствует
             "$APP_DIR/.venv/bin/python" -m pip install --upgrade pip --quiet
             "$APP_DIR/.venv/bin/python" -m pip install -e "$APP_DIR" --quiet
+            # Зависимости Telegram бота
+            "$APP_DIR/.venv/bin/python" -m pip install -r "$APP_DIR/Valeriy/PythonProject2/requirements.txt" --quiet
 
             echo ">> [3/7] Database migrations"
             cd "$APP_DIR"
@@ -185,6 +213,15 @@ jobs:
             systemctl restart "$SERVICE_NAME"
             sleep 3
             systemctl is-active "$SERVICE_NAME"
+
+            echo ">> [6.5/7] Restart Telegram bot"
+            if [ -f "$APP_DIR/Valeriy/PythonProject2/local.env" ]; then
+              systemctl restart suupr-telegram-bot
+              sleep 3
+              systemctl is-active suupr-telegram-bot || echo "WARN: telegram bot not active (check local.env)"
+            else
+              echo "SKIP: Valeriy/PythonProject2/local.env not found — telegram bot not started"
+            fi
 
             echo ">> [7/7] Reload nginx"
             install -m 644 "$APP_DIR/deploy/nginx-suupr.conf" /etc/nginx/sites-available/suupr
@@ -213,13 +250,16 @@ jobs:
             }
 
             echo ">> Системные сервисы"
-            for svc in postgresql nginx "$SERVICE_NAME"; do
+            for svc in postgresql nginx "$SERVICE_NAME" suupr-telegram-bot; do
               if systemctl is-active --quiet "$svc"; then
                 echo "  [OK]   $svc active"
               else
-                echo "  [FAIL] $svc not active"
+                echo "  [WARN] $svc not active"
                 systemctl status "$svc" --no-pager -l | head -20 || true
-                FAILED=$((FAILED+1))
+                # Telegram bot failure не блокирует деплой
+                if [ "$svc" != "suupr-telegram-bot" ]; then
+                  FAILED=$((FAILED+1))
+                fi
               fi
             done
 
