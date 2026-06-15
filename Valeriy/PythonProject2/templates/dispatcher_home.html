@@ -1,0 +1,79 @@
+{% extends "dispatcher_base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">👋 Добро пожаловать, {{ dispatcher.full_name or dispatcher.name or 'Диспетчер' }}!</h1>
+  <p class="page-subtitle">Панель управления заявками</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 28px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📊 Заявок сегодня</h2>
+    </div>
+    <div style="font-size: 36px; font-weight: 600; color: var(--accent);">
+      {{ today_orders }}
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">⚡ Быстрые действия</h2>
+    </div>
+    <a href="/create-order" class="btn" style="width: 100%; justify-content: center; margin-top: 12px;">
+      ➕ Создать новую заявку
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">📋 Последние заявки</h2>
+    <p class="card-desc">Ваши недавно созданные заявки</p>
+  </div>
+  
+  {% if recent_orders %}
+    <table>
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Город</th>
+          <th>Адрес</th>
+          <th>Статус</th>
+          <th>Создана</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in recent_orders %}
+          <tr>
+            <td><strong>#{{ order.order_number }}</strong></td>
+            <td>{{ order.city_rel.name if order.city_rel else "—" }}</td>
+            <td>
+              {% if order.street %}
+                {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent);">
+                {{ order.status }}
+              </span>
+            </td>
+            <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—" }}</td>
+            <td>
+              <a href="/order/{{ order.id }}" style="color: var(--accent); text-decoration: none;">Просмотр</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color: var(--text-soft); text-align: center; padding: 40px;">
+      Пока нет созданных заявок
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
+

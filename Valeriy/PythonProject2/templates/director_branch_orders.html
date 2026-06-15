@@ -1,0 +1,118 @@
+{% extends "master_base.html" %}
+
+{% block content %}
+{% if city %}
+<div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+  <div style="font-size: 18px; font-weight: 600;">🏙 Филиал: {{ city.name }}</div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">📋 Заявки филиала</div>
+  
+  <form method="get" action="/branch-orders" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; margin-bottom: 20px; align-items: end;">
+    <div>
+      <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #64748b;">Статус</label>
+      <select name="status" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+        <option value="">Все статусы</option>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if current_filters.status == s %}selected{% endif %}>{{ get_status_name_ru(s) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #64748b;">Мастер</label>
+      <select name="master_id" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+        <option value="">Все мастера</option>
+        {% for master in branch_masters %}
+          <option value="{{ master.tg_id }}" {% if current_filters.master_id == master.tg_id|string %}selected{% endif %}>
+            {{ master.full_name or master.name or master.tg_id }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #64748b;">С</label>
+      <input type="date" name="date_from" value="{{ current_filters.date_from or '' }}" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+    </div>
+    <div>
+      <label style="display: block; font-size: 12px; margin-bottom: 6px; color: #64748b;">По</label>
+      <input type="date" name="date_to" value="{{ current_filters.date_to or '' }}" style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">
+    </div>
+    <button type="submit" class="btn" style="height: fit-content;">🔍 Применить</button>
+  </form>
+  
+  {% if orders %}
+    <table>
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Мастер</th>
+          <th>Адрес</th>
+          <th>Тип</th>
+          <th>Статус</th>
+          <th>Дата</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+          {% set master = None %}
+          {% if order.assigned_to %}
+            {% for m in branch_masters %}
+              {% if m.tg_id == order.assigned_to %}
+                {% set master = m %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          <tr>
+            <td><strong>#{{ order.order_number }}</strong></td>
+            <td>{{ master.full_name or master.name or master.tg_id if master else "Не назначен" }}</td>
+            <td>
+              {% if order.street %}
+                {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>{{ get_equip_type_name(order.equip_type) if order.equip_type else "—" }}</td>
+            <td>
+              {% if order.status == "completed" %}
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(34,197,94,0.15); color: #22c55e; font-weight: 500;">
+                  ✅ {{ get_status_name_ru(order.status) }}
+                </span>
+              {% elif order.status == "done_pending_sum" %}
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 500;">
+                  ⏳ {{ get_status_name_ru(order.status) }}
+                </span>
+              {% elif order.status == "to_sd" %}
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 500;">
+                  🔧 {{ get_status_name_ru(order.status) }}
+                </span>
+              {% elif order.status in ["accepted", "on_place"] %}
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,0.15); color: #3b82f6; font-weight: 500;">
+                  🔄 {{ get_status_name_ru(order.status) }}
+                </span>
+              {% else %}
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 500;">
+                  {{ get_status_name_ru(order.status) }}
+                </span>
+              {% endif %}
+            </td>
+            <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else "—" }}</td>
+            <td>
+              <a href="/order/{{ order.id }}" class="btn" style="padding: 6px 12px; font-size: 12px;">Открыть</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <p>Заявки не найдены</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

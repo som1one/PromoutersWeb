@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1 class="page-title">🏙 Города</h1>
+    <p class="page-subtitle">Управление городами и часовыми поясами</p>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <a href="/" class="btn" style="background: var(--bg-soft); color: var(--text); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid var(--border-subtle);">
+      ← Назад
+    </a>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px;">
+  <!-- Список городов -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📋 Список городов</h2>
+      <p class="card-desc">Все города в системе</p>
+    </div>
+    
+    {% if cities %}
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--bg-soft); border-bottom: 2px solid var(--border-subtle);">
+              <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">ID</th>
+              <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Название</th>
+              <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Часовой пояс</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in cities %}
+              <tr class="city-row" style="border-bottom: 1px solid var(--border-subtle); transition: all 0.2s ease;">
+                <td style="padding: 14px 12px; color: var(--text-soft); font-size: 14px; font-weight: 500;">
+                  {{ c.id }}
+                </td>
+                <td style="padding: 14px 12px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 18px;">🏙</span>
+                    <span style="font-size: 16px; font-weight: 600; color: var(--text);">{{ c.name }}</span>
+                  </div>
+                </td>
+                <td style="padding: 14px 12px; color: var(--text-soft); font-size: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 14px;">🕐</span>
+                    <span>{{ c.timezone or "Europe/Moscow" }}</span>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 60px 20px; color: var(--text-soft);">
+        <div style="font-size: 64px; margin-bottom: 16px;">🏙</div>
+        <p style="font-size: 16px; margin: 0;">Городов пока нет</p>
+        <p style="font-size: 14px; margin-top: 8px; opacity: 0.7;">Добавьте первый город справа</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Форма добавления города -->
+  <div class="card" style="background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(37,99,235,0.05) 100%); border: 1px solid rgba(37,99,235,0.2);">
+    <div class="card-header">
+      <h2 class="card-title">➕ Добавить город</h2>
+      <p class="card-desc">Создать новый город в системе</p>
+    </div>
+    <form method="post" id="cityForm">
+      <div class="form-group">
+        <label class="form-label">🏙 Название города *</label>
+        <input 
+          type="text" 
+          name="name" 
+          placeholder="Например: Москва" 
+          required
+          style="padding: 12px; border-radius: 8px; transition: all 0.2s;"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">🕐 Часовой пояс (IANA)</label>
+        <input 
+          type="text" 
+          name="timezone" 
+          placeholder="Europe/Moscow" 
+          value="Europe/Moscow"
+          style="padding: 12px; border-radius: 8px; transition: all 0.2s;"
+        >
+        <p style="margin-top: 8px; font-size: 12px; color: var(--text-soft); line-height: 1.5;">
+          💡 Используйте формат IANA (например: Europe/Moscow, Asia/Yekaterinburg)
+        </p>
+      </div>
+      
+      <button type="submit" class="btn" style="width: 100%; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 12px 24px; font-weight: 600; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
+        ➕ Добавить город
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Hover эффекты для строк таблицы
+  const cityRows = document.querySelectorAll('.city-row');
+  cityRows.forEach(row => {
+    row.addEventListener('mouseenter', function() {
+      this.style.background = 'rgba(37,99,235,0.05)';
+    });
+    row.addEventListener('mouseleave', function() {
+      this.style.background = '';
+    });
+  });
+  
+  // Улучшенные стили для инпутов при фокусе
+  const inputs = document.querySelectorAll('#cityForm input');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.style.borderColor = 'var(--accent)';
+      this.style.boxShadow = '0 0 0 3px var(--accent-soft)';
+    });
+    input.addEventListener('blur', function() {
+      this.style.borderColor = '';
+      this.style.boxShadow = '';
+    });
+  });
+});
+</script>
+
+<style>
+  @media (max-width: 768px) {
+    .page-header > div {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+  }
+</style>
+{% endblock %}

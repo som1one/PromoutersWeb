@@ -1,0 +1,847 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set meta = dashboard.meta %}
+{% set cards = dashboard.cards %}
+<style>
+  /* Улучшенный UI таблиц на /stats */
+  .table-wrap{
+    overflow: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: rgba(2,6,23,0.35);
+  }
+  .stats-table{
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0;
+  }
+  .stats-table thead th{
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(2,6,23,0.92) 0%, rgba(2,6,23,0.76) 100%);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .stats-table th,
+  .stats-table td{
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(148,163,184,0.12);
+    vertical-align: middle;
+  }
+  .stats-table tbody tr:nth-child(even){
+    background: rgba(148,163,184,0.04);
+  }
+  .stats-table tbody tr:hover{
+    background: rgba(37,99,235,0.10);
+  }
+  .num{ text-align: right; font-variant-numeric: tabular-nums; }
+  .mono{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .cell-muted{ color: var(--text-soft); }
+  .badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(148,163,184,0.18);
+    background: rgba(148,163,184,0.08);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .badge.ok{ border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.12); color: #86efac; }
+  .badge.bad{ border-color: rgba(239,68,68,0.28); background: rgba(239,68,68,0.12); color: #fca5a5; }
+  .link-clean{ color: var(--accent); text-decoration: none; font-weight: 700; }
+  .link-clean:hover{ text-decoration: underline; }
+</style>
+<div class="page-header">
+  <h1 class="page-title">📊 Статистика</h1>
+  <p class="page-subtitle">
+    {{ meta.city_name }} · {{ filters.period_label }}
+  </p>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <form method="get" action="/stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+    {% if user_role == "owner" %}
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Город</label>
+        <select name="city_id">
+          <option value="">— Все города —</option>
+          {% for city in cities %}
+            <option value="{{ city.id }}" {% if filters.city_id and (filters.city_id|string) == (city.id|string) %}selected{% endif %}>
+              {{ city.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    {% else %}
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Город</label>
+        <input type="text" value="{{ meta.city_name }}" disabled>
+      </div>
+    {% endif %}
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Мастер</label>
+      <select name="master_id">
+        <option value="">— Все мастера —</option>
+        {% for master in masters %}
+          <option value="{{ master.tg_id }}" {% if filters.master_id and (filters.master_id|string) == (master.tg_id|string) %}selected{% endif %}>
+            {{ master.full_name or master.name or master.tg_id }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Дата с</label>
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Дата до</label>
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Период</label>
+      <select name="period">
+        {% for value, label in period_options %}
+          <option value="{{ value }}" {% if filters.period == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Тип техники</label>
+      <select name="equip_category">
+        <option value="">— Все типы —</option>
+        <option value="appliance" {% if filters.equip_category == 'appliance' %}selected{% endif %}>Бытовая техника</option>
+        <option value="digital" {% if filters.equip_category == 'digital' %}selected{% endif %}>Цифровая техника</option>
+        <option value="other" {% if filters.equip_category == 'other' %}selected{% endif %}>Другое</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+      <input type="checkbox" name="include_warranty" id="include_warranty" value="1" {% if filters.include_warranty %}checked{% endif %} style="width: auto;">
+      <label for="include_warranty" class="form-label" style="margin: 0;">Включать гарантийные заявки</label>
+    </div>
+
+    <div style="align-self: center; display: flex; gap: 8px; flex-wrap: wrap;">
+      <button type="submit" class="btn">🔍 Применить</button>
+      <a href="/stats" class="btn btn-secondary">🔄 Сбросить</a>
+      <a href="/stats/export{% if export_query %}?{{ export_query }}{% endif %}" class="btn" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+        📥 Экспорт Excel
+      </a>
+    </div>
+  </form>
+</div>
+
+{% if dashboard_summary %}
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header">
+    <h2 class="card-title">📝 Сводка (как в боте)</h2>
+    <p class="card-desc">Текст совпадает с ботом 1:1</p>
+  </div>
+  <div style="line-height: 1.6; white-space: pre-line;">
+    {% for line in dashboard_summary %}
+      {% if line %}
+        <div>{{ line }}</div>
+      {% else %}
+        <div style="height: 8px;"></div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if category_table %}
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header">
+    <h2 class="card-title">📊 Статистика по категориям и заявкам</h2>
+    <p class="card-desc">Детальная разбивка по категориям оборудования и отдельным заявкам</p>
+  </div>
+  <div class="table-wrap">
+    <table class="stats-table" style="min-width: 1200px;">
+      <thead>
+        <tr>
+          <th>Город / Мастер</th>
+          <th class="num">Всего</th>
+          <th class="num">Отказ</th>
+          <th class="num">Гарантия</th>
+          <th class="num">Оборот</th>
+          <th class="num">Средний чек</th>
+          <th class="num">ЗП Мастеров</th>
+          <th class="num">Доля компании</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in category_table.rows %}
+          <tr {% if row.type == "category_total" %}style="background: rgba(34,197,94,0.08); font-weight: 700;"{% endif %}>
+            <td>
+              {% if row.type == "category_total" %}
+                <strong>{{ row.label }}</strong>
+                {% if row.master_name %}
+                  <span style="color: var(--text-soft); margin-left: 8px;">· {{ row.master_name }}</span>
+                {% endif %}
+              {% else %}
+                <span style="margin-left: 20px; color: var(--text-soft);">{{ row.label }}</span>
+                {% if row.order_id %}
+                  <a href="/order/{{ row.order_id }}" class="link-clean" style="margin-left: 8px;">→</a>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td class="num mono">{{ row.total }}</td>
+            <td class="num mono">{{ row.refused }}</td>
+            <td class="num mono">{{ row.warranty }}</td>
+            <td class="num mono">{{ "%.0f"|format(row.turnover) }} ₽</td>
+            <td class="num mono">{% if row.type == "category_total" %}{{ "%.0f"|format(row.avg_check) }} ₽{% else %}—{% endif %}</td>
+            <td class="num mono">
+              {% if row.type == "order" %}
+                <span style="color: var(--text-soft);">ЗП по заявке {{ row.order_id if row.order_id else "" }}</span>
+              {% endif %}
+              {{ "%.0f"|format(row.master_salary) }} ₽
+            </td>
+            <td class="num mono">
+              {% if row.type == "order" %}
+                <span style="color: var(--text-soft);">оборот -% по сетке =</span>
+              {% endif %}
+              {{ "%.0f"|format(row.company_share) }} ₽
+              {% if row.type == "category_total" %}
+                <span style="color: var(--text-soft); font-size: 11px; margin-left: 6px;">
+                  {% if row.type == "category_total" %}итого оборот -% по сетке{% endif %}
+                </span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if category_table.totals %}
+          <tr style="background: rgba(59,130,246,0.15); font-weight: 700; border-top: 2px solid var(--border-subtle);">
+            <td><strong>ИТОГО</strong></td>
+            <td class="num mono">—</td>
+            <td class="num mono">—</td>
+            <td class="num mono">—</td>
+            <td class="num mono">{{ "%.0f"|format(category_table.totals.turnover) }} ₽</td>
+            <td class="num mono">{{ "%.0f"|format(category_table.totals.avg_check) }} ₽</td>
+            <td class="num mono">{{ "%.0f"|format(category_table.totals.master_salary) }} ₽</td>
+            <td class="num mono">{{ "%.0f"|format(category_table.totals.company_share) }} ₽</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+  <div class="stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value">{{ cards.completed }}</div>
+    <div class="stat-label">Закрыто из {{ cards.total }}</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+    <div class="stat-icon">💰</div>
+    <div class="stat-value">{{ "%.0f"|format(cards.net_sum) }} ₽</div>
+    <div class="stat-label">Чистая касса</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);">
+    <div class="stat-icon">🏦</div>
+    <div class="stat-value">{{ "%.0f"|format(cards.company_share) }} ₽</div>
+    <div class="stat-label">Доля компании</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+    <div class="stat-icon">📈</div>
+    <div class="stat-value">{{ cards.conversion }}%</div>
+    <div class="stat-label">Конверсия</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
+    <div class="stat-icon">🚀</div>
+    <div class="stat-value">{{ cards.in_progress }}</div>
+    <div class="stat-label">В работе</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #facc15 0%, #eab308 100%);">
+    <div class="stat-icon">💳</div>
+    <div class="stat-value">{{ "%.0f"|format(cards.avg_check) }} ₽</div>
+    <div class="stat-label">Средний чек</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+    <div class="stat-icon">💼</div>
+    <div class="stat-value">{{ cards.cash_pending_count }}</div>
+    <div class="stat-label">К сдаче · {{ "%.0f"|format(cards.cash_pending_sum) }} ₽</div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+    <div class="stat-icon">❌</div>
+    <div class="stat-value">{{ cards.refused }}</div>
+    <div class="stat-label">Отказов</div>
+  </div>
+</div>
+
+<!-- Графики (веб, без Excel) -->
+<div class="card" style="margin-bottom: 24px;" data-charts='{{ charts_json|safe }}'>
+  <div class="card-header">
+    <h2 class="card-title">📈 Графики</h2>
+    <p class="card-desc">Визуальная статистика по выбранным фильтрам</p>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px;">
+    <div style="background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
+      <div style="font-weight: 700; margin-bottom: 10px;">📆 Динамика (закрыто / чистая сумма)</div>
+      <div style="position: relative; height: 260px;">
+        <canvas id="chartDaily"></canvas>
+      </div>
+    </div>
+    <div style="background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
+      <div style="font-weight: 700; margin-bottom: 10px;">🏙 Топ городов (чистая сумма)</div>
+      <div style="position: relative; height: 260px;">
+        <canvas id="chartCities"></canvas>
+      </div>
+    </div>
+    <div style="background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
+      <div style="font-weight: 700; margin-bottom: 10px;">🔧 Топ техники (чистая сумма)</div>
+      <div style="position: relative; height: 260px;">
+        <canvas id="chartEquipment"></canvas>
+      </div>
+    </div>
+    <div style="background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
+      <div style="font-weight: 700; margin-bottom: 10px;">📊 Статусы</div>
+      <div style="position: relative; height: 260px;">
+        <canvas id="chartStatuses"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📊 Статусы</h2>
+      <p class="card-desc">Распределение заявок</p>
+    </div>
+    <div class="table-wrap">
+    <table class="stats-table" style="min-width: 420px;">
+      <thead>
+        <tr>
+          <th>Статус</th>
+          <th class="num">Кол-во</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in dashboard.status_breakdown %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td class="num mono">{{ item.count }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📥 Источники</h2>
+      <p class="card-desc">Откуда приходят заявки</p>
+    </div>
+    {% if dashboard.sources %}
+      <div class="table-wrap">
+      <table class="stats-table" style="min-width: 420px;">
+        <thead>
+          <tr>
+            <th>Источник</th>
+            <th class="num">Кол-во</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for source in dashboard.sources[:10] %}
+            <tr>
+              <td>{{ source.name }}</td>
+              <td class="num mono">{{ source.count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="margin-top: 24px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">👤 Топ мастеров</h2>
+      <p class="card-desc">По чистой выручке</p>
+    </div>
+    {% if dashboard.masters %}
+      <div class="table-wrap">
+      <table class="stats-table" style="min-width: 720px;">
+        <thead>
+          <tr>
+            <th>Мастер</th>
+            <th class="num">Закрыто</th>
+            <th class="num">Чистая сумма</th>
+            <th class="num">Конверсия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for master in dashboard.masters[:10] %}
+            <tr>
+              <td>{{ master.name }}</td>
+              <td class="num mono">{{ master.count }}</td>
+              <td class="num mono">{{ "%.0f"|format(master.net_sum) }} ₽</td>
+              <td class="num mono">{{ master.conversion }}%</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🔧 Техника</h2>
+      <p class="card-desc">Топ выручки по оборудованию</p>
+    </div>
+    {% if dashboard.equipment %}
+      <div class="table-wrap">
+      <table class="stats-table" style="min-width: 760px;">
+        <thead>
+          <tr>
+            <th>Тип</th>
+            <th class="num">Закрыто</th>
+            <th class="num">Чистая сумма</th>
+            <th class="num">Средний чек</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for equip in dashboard.equipment[:10] %}
+            <tr>
+              <td>{{ equip.name }}</td>
+              <td class="num mono">{{ equip.count }}</td>
+              <td class="num mono">{{ "%.0f"|format(equip.net_sum) }} ₽</td>
+              <td class="num mono">{{ "%.0f"|format(equip.avg_check) }} ₽</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="margin-top: 24px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📆 Динамика</h2>
+      <p class="card-desc">По дням периода</p>
+    </div>
+    {% if dashboard.daily %}
+      <div class="table-wrap">
+      <table class="stats-table" style="min-width: 520px;">
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th class="num">Закрыто</th>
+            <th class="num">Чистая сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in dashboard.daily %}
+            <tr>
+              <td class="mono">{{ day.date }}</td>
+              <td class="num mono">{{ day.count }}</td>
+              <td class="num mono">{{ "%.0f"|format(day.net_sum) }} ₽</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🏙 Города</h2>
+      <p class="card-desc">Вклад каждого города</p>
+    </div>
+    {% if dashboard.cities %}
+      <div class="table-wrap">
+      <table class="stats-table" style="min-width: 560px;">
+        <thead>
+          <tr>
+            <th>Город</th>
+            <th class="num">Заявок</th>
+            <th class="num">Чистая сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for city in dashboard.cities %}
+            <tr>
+              <td>{{ city.name }}</td>
+              <td class="num mono">{{ city.count }}</td>
+              <td class="num mono">{{ "%.0f"|format(city.net_sum) }} ₽</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if detailed_stats %}
+<div class="card" style="margin-top: 24px;">
+  <div class="card-header">
+    <h2 class="card-title">📅 Детальная статистика по датам</h2>
+    <p class="card-desc">Разбивка по каждому дню периода</p>
+  </div>
+  {% if detailed_stats.daily_breakdown %}
+    <div class="table-wrap">
+      <table class="stats-table" style="min-width: 980px;">
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th class="num">Закрыто</th>
+            <th class="num">В работе</th>
+            <th class="num">Отказов</th>
+            <th class="num">Гарантийных</th>
+            <th class="num">Валовая сумма</th>
+            <th class="num">Чистая сумма</th>
+            <th class="num">Приход в компанию</th>
+            <th class="num">Средний чек</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in detailed_stats.daily_breakdown %}
+            <tr>
+              <td><strong>{{ day.date.strftime('%d.%m.%Y') if day.date else '—' }}</strong></td>
+              <td class="num mono">{{ day.completed_count }}</td>
+              <td class="num mono">{{ day.active_count }}</td>
+              <td class="num mono">{{ day.refused_count }}</td>
+              <td class="num mono">{{ day.warranty_count }}</td>
+              <td class="num mono">{{ "%.0f"|format(day.total_gross) }} ₽</td>
+              <td class="num mono">{{ "%.0f"|format(day.total_net) }} ₽</td>
+              <td class="num mono"><span class="badge ok">💚 {{ "%.0f"|format(day.company_income) }} ₽</span></td>
+              <td class="num mono">{{ "%.0f"|format(day.avg_check) }} ₽</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных за выбранный период</p>
+  {% endif %}
+</div>
+
+<div class="grid-2" style="margin-top: 24px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🏙 Статистика по городам</h2>
+      <p class="card-desc">Детализация по городам</p>
+    </div>
+    {% if detailed_stats.city_breakdown %}
+      <div class="table-wrap">
+        <table class="stats-table" style="min-width: 820px;">
+          <thead>
+            <tr>
+              <th>Город</th>
+              <th class="num">Закрыто</th>
+              <th class="num">Валовая</th>
+              <th class="num">Чистая</th>
+              <th class="num">Приход</th>
+              <th class="num">Средний чек</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for city_key, city in detailed_stats.city_breakdown.items() %}
+              <tr>
+                <td><strong>{{ city.name }}</strong></td>
+                <td class="num mono">{{ city.completed_count }}</td>
+                <td class="num mono">{{ "%.0f"|format(city.total_gross) }} ₽</td>
+                <td class="num mono">{{ "%.0f"|format(city.total_net) }} ₽</td>
+                <td class="num mono"><span class="badge ok">💚 {{ "%.0f"|format(city.company_income) }} ₽</span></td>
+                <td class="num mono">{{ "%.0f"|format(city.avg_check) }} ₽</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🔧 Статистика по типам техники</h2>
+      <p class="card-desc">Бытовая, цифровая, другое</p>
+    </div>
+    {% if detailed_stats.equipment_category_breakdown %}
+      <div class="table-wrap">
+        <table class="stats-table" style="min-width: 820px;">
+          <thead>
+            <tr>
+              <th>Категория</th>
+              <th class="num">Закрыто</th>
+              <th class="num">Валовая</th>
+              <th class="num">Чистая</th>
+              <th class="num">Приход</th>
+              <th class="num">Средний чек</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat_key, cat in detailed_stats.equipment_category_breakdown.items() %}
+              <tr>
+                <td><strong>{{ cat.name }}</strong></td>
+                <td class="num mono">{{ cat.completed_count }}</td>
+                <td class="num mono">{{ "%.0f"|format(cat.total_gross) }} ₽</td>
+                <td class="num mono">{{ "%.0f"|format(cat.total_net) }} ₽</td>
+                <td class="num mono"><span class="badge ok">💚 {{ "%.0f"|format(cat.company_income) }} ₽</span></td>
+                <td class="num mono">{{ "%.0f"|format(cat.avg_check) }} ₽</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-soft); text-align: center; padding: 32px;">Нет данных</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top: 24px;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h2 class="card-title">📋 Последние записи</h2>
+      <p class="card-desc">Последние операции Stat</p>
+    </div>
+    <a href="/stats/export{% if export_query %}?{{ export_query }}{% endif %}" class="btn" style="background: var(--success); color: white;">
+      📥 Экспорт в Excel
+    </a>
+  </div>
+  {% if stat_records %}
+    <div class="table-wrap">
+      <table class="stats-table" style="min-width: 880px;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Order ID</th>
+            <th>Тип</th>
+            <th class="num">Сумма</th>
+            <th>Мастер</th>
+            <th>Отказ</th>
+            <th>Дата</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stat in stat_records %}
+            <tr>
+              <td class="mono">{{ stat.id }}</td>
+              <td>
+                {% if stat.order_id %}
+                  <a href="/order/{{ stat.order_id }}" class="link-clean">
+                    #{{ stat.order_id }}
+                  </a>
+                {% else %}
+                  <span class="cell-muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ get_equip_type_name(stat.equip_type) if stat.equip_type else "Не указан" }}</td>
+              <td class="num mono"><strong>{{ "%.2f"|format(stat.sum or 0) }} ₽</strong></td>
+              <td>
+                {% if stat.master_tg %}
+                  {% set master = masters_dict.get(stat.master_tg) %}
+                  {% if master %}
+                    <a href="/master/{{ master.tg_id }}" class="link-clean">
+                      {{ master.full_name or master.name or master.tg_id }}
+                    </a>
+                  {% else %}
+                    <span class="mono">{{ stat.master_tg }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="cell-muted">Не назначен</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if stat.refused %}
+                  <span class="badge bad">❌ Да</span>
+                {% else %}
+                  <span class="badge ok">✅ Нет</span>
+                {% endif %}
+              </td>
+              <td class="mono">{{ stat.recorded_at.strftime('%d.%m.%Y %H:%M') if stat.recorded_at else "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color: var(--text-soft); text-align: center; padding: 40px;">Нет записей статистики</p>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  (function initStatsCharts() {
+    const root = document.querySelector('[data-charts]');
+    if (!root) return;
+    let data = null;
+    try { data = JSON.parse(root.getAttribute('data-charts') || '{}'); } catch (e) { data = {}; }
+
+    const daily = Array.isArray(data.daily) ? data.daily : [];
+    const cities = Array.isArray(data.cities) ? data.cities : [];
+    const equipment = Array.isArray(data.equipment) ? data.equipment : [];
+    const statuses = Array.isArray(data.statuses) ? data.statuses : [];
+
+    const toMoney = (v) => Math.round(Number(v || 0));
+
+    // Daily: комбинированный график (bar=count + line=net)
+    const dailyLabels = daily.map(d => d.date);
+    const dailyCounts = daily.map(d => Number(d.count || 0));
+    const dailyNet = daily.map(d => toMoney(d.net_sum));
+
+    const dailyEl = document.getElementById('chartDaily');
+    if (dailyEl && dailyLabels.length) {
+      new Chart(dailyEl.getContext('2d'), {
+        data: {
+          labels: dailyLabels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Закрыто',
+              data: dailyCounts,
+              backgroundColor: 'rgba(59,130,246,0.35)',
+              borderColor: 'rgba(59,130,246,0.8)',
+              borderWidth: 1,
+              yAxisID: 'yCount',
+            },
+            {
+              type: 'line',
+              label: 'Чистая сумма (₽)',
+              data: dailyNet,
+              borderColor: 'rgba(34,197,94,0.9)',
+              backgroundColor: 'rgba(34,197,94,0.15)',
+              tension: 0.35,
+              fill: true,
+              yAxisID: 'yMoney',
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'bottom' } },
+          scales: {
+            yCount: { beginAtZero: true, position: 'left', ticks: { precision: 0 } },
+            yMoney: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    // Cities
+    const cityLabels = cities.map(c => c.name);
+    const cityNet = cities.map(c => toMoney(c.net_sum));
+    const citiesEl = document.getElementById('chartCities');
+    if (citiesEl && cityLabels.length) {
+      new Chart(citiesEl.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: cityLabels,
+          datasets: [{
+            label: 'Чистая сумма (₽)',
+            data: cityNet,
+            backgroundColor: 'rgba(139,92,246,0.35)',
+            borderColor: 'rgba(139,92,246,0.85)',
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Equipment
+    const eqLabels = equipment.map(e => e.name);
+    const eqNet = equipment.map(e => toMoney(e.net_sum));
+    const equipmentEl = document.getElementById('chartEquipment');
+    if (equipmentEl && eqLabels.length) {
+      new Chart(equipmentEl.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: eqLabels,
+          datasets: [{
+            label: 'Чистая сумма (₽)',
+            data: eqNet,
+            backgroundColor: 'rgba(245,158,11,0.35)',
+            borderColor: 'rgba(245,158,11,0.85)',
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Statuses doughnut
+    const st = statuses.filter(s => Number(s.count || 0) > 0);
+    const stLabels = st.map(s => s.name);
+    const stCounts = st.map(s => Number(s.count || 0));
+    const statusesEl = document.getElementById('chartStatuses');
+    if (statusesEl && stLabels.length) {
+      new Chart(statusesEl.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: stLabels,
+          datasets: [{
+            data: stCounts,
+            backgroundColor: [
+              'rgba(59,130,246,0.7)',
+              'rgba(34,197,94,0.7)',
+              'rgba(245,158,11,0.7)',
+              'rgba(239,68,68,0.7)',
+              'rgba(139,92,246,0.7)',
+              'rgba(14,165,233,0.7)',
+              'rgba(148,163,184,0.7)',
+            ],
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+  })();
+</script>
+
+{% endblock %}
+

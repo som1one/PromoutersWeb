@@ -1,0 +1,161 @@
+{% extends "master_base.html" %}
+
+{% block content %}
+{% if city %}
+<div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+  <div style="font-size: 18px; font-weight: 600;">🏙 Филиал: {{ city.name }}</div>
+</div>
+{% endif %}
+
+{% if request.query_params.get('assigned') == '1' %}
+  <div style="background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+    ✅ Заявка успешно назначена!
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">📋 Заявка #{{ order.order_number }}</div>
+  
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+    <div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Статус</label>
+        <span class="status-badge status-{{ order.status }}">
+          {{ get_status_name_ru(order.status) }}
+        </span>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Город</label>
+        <div style="font-size: 16px;">{{ order.city_rel.name if order.city_rel else "—" }}</div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Адрес</label>
+        <div style="font-size: 16px;">
+          {% if order.street %}
+            {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Время</label>
+        <div style="font-size: 16px;">
+          {% if order.time_from or order.time_to %}
+            {{ order.time_from or "" }}{% if order.time_from and order.time_to %} — {% endif %}{{ order.time_to or "" }}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Тип техники</label>
+        <div style="font-size: 16px;">{{ get_equip_type_name(order.equip_type) if order.equip_type else "—" }}</div>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Описание</label>
+        <div style="font-size: 16px; white-space: pre-wrap;">{{ order.short_desc or "—" }}</div>
+      </div>
+      
+      {% if order.client_name or order.client_phone %}
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Клиент</label>
+          <div style="font-size: 16px;">
+            {% if order.client_name %}{{ order.client_name }}{% endif %}
+            {% if order.client_phone %}<br><a href="tel:{{ order.client_phone }}" style="color: #10b981;">{{ order.client_phone }}</a>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+      
+      {% if order.sum_amount %}
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Сумма заказа</label>
+          <div style="font-size: 18px; font-weight: 600; color: #10b981;">{{ "%.2f"|format(order.sum_amount) }} ₽</div>
+        </div>
+      {% endif %}
+      {% if order.paid_amount and order.paid_amount != order.sum_amount %}
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">Оплачено</label>
+          <div style="font-size: 18px; font-weight: 600; color: #3b82f6;">{{ "%.2f"|format(order.paid_amount) }} ₽</div>
+        </div>
+      {% endif %}
+      {% if order.debt_amount and order.debt_amount > 0 %}
+        <div style="margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+          <label style="display: block; font-size: 12px; color: #856404; margin-bottom: 4px;">⚠️ Долг</label>
+          <div style="font-size: 18px; font-weight: 600; color: #856404;">{{ "%.2f"|format(order.debt_amount) }} ₽</div>
+          {% if order.debt_payment_date %}
+            <div style="font-size: 12px; color: #856404; margin-top: 4px;">Дата погашения: {{ order.debt_payment_date.strftime('%d.%m.%Y') }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if order.bso_file_path %}
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">📄 БСО/Договор/Квитанция</label>
+          <div style="padding: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <span style="font-size: 18px;">📄</span>
+              <span style="flex: 1; color: #1e293b; font-size: 14px;">{{ order.bso_file_path.split('/')[-1] if order.bso_file_path else 'БСО не сохранен' }}</span>
+              <a href="/order/{{ order.id }}/bso-file" target="_blank" style="padding: 6px 12px; background: #10b981; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">
+                👁 Просмотр
+              </a>
+            </div>
+            <p style="margin: 0; font-size: 12px; color: #64748b;">Документ сохранен в базе и доступен для просмотра</p>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if order.receipt_file_path or order.receipt_file_id %}
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; color: #64748b; margin-bottom: 4px;">🧾 Чек на расходы (ЗПЧ)</label>
+          <div style="padding: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <span style="font-size: 18px;">🧾</span>
+              <span style="flex: 1; color: #1e293b; font-size: 14px;">
+                {% if order.receipt_file_path %}
+                  {{ order.receipt_file_path.split('/')[-1] }}
+                {% elif order.receipt_file_id %}
+                  Чек из бота
+                {% endif %}
+              </span>
+              <a href="/order/{{ order.id }}/receipt-file" target="_blank" style="padding: 6px 12px; background: #10b981; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">
+                👁 Просмотр
+              </a>
+            </div>
+            <p style="margin: 0; font-size: 12px; color: #64748b;">Документ сохранен в базе и доступен для просмотра</p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
+    <form method="post" action="/order/{{ order.id }}/assign">
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">Назначить мастеру</label>
+        <select name="master_id" style="width: 100%; max-width: 400px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;">
+          <option value="-">— Снять назначение —</option>
+          {% for master in branch_masters %}
+            <option value="{{ master.tg_id }}" {% if order.assigned_to == master.tg_id %}selected{% endif %}>
+              {{ master.full_name or master.name or master.tg_id }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn">✅ Назначить</button>
+    </form>
+  </div>
+  
+  <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
+    <a href="/branch-orders" class="btn btn-secondary">← Назад к заявкам</a>
+  </div>
+</div>
+{% endblock %}
+

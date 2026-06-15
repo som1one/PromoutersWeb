@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">👤 Карточка мастера</h1>
+  <p class="page-subtitle">Подробная информация о мастере</p>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+  <div class="card-header">
+    <h2 class="card-title">{{ master.full_name or master.name or master.tg_id }}</h2>
+    <p class="card-desc">VK ID: {{ master.tg_id }}</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+    <!-- Левая колонка - информация -->
+    <div>
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          ФИО
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {{ master.full_name or master.name or "Не указано" }}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Номер телефона
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {% if master.phone %}
+            <a href="tel:{{ master.phone }}" style="color: var(--accent); text-decoration: none;">
+              {{ master.phone }}
+            </a>
+          {% else %}
+            <span style="color: var(--text-soft);">Не указан</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Город
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {{ master.city_rel.name if master.city_rel else "Не указан" }}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Индивидуальный процент
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {% if master.master_percentage is not none %}
+            {{ master.master_percentage }}%
+          {% else %}
+            <span style="color: var(--text-soft);">По сетке</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Правая колонка - фото паспорта -->
+    <div>
+      <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Фото паспорта
+      </label>
+      
+      {% if master.passport_photo_path %}
+        <div style="margin-bottom: 16px;">
+          <img src="/master/{{ master.tg_id }}/passport-photo" 
+               alt="Фото паспорта" 
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border-subtle); box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+               onclick="showImageModal(this.src)">
+        </div>
+        <p style="font-size: 12px; color: var(--text-soft); margin-top: 8px;">
+          ✅ Фото загружено
+        </p>
+      {% else %}
+        <div style="padding: 40px; background: var(--bg-soft); border: 2px dashed var(--border-subtle); border-radius: 8px; text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 12px;">📄</div>
+          <p style="color: var(--text-soft); font-size: 14px;">Фото не загружено</p>
+        </div>
+      {% endif %}
+
+      <!-- Форма загрузки -->
+      <form method="post" action="/master/{{ master.tg_id }}/upload-passport" enctype="multipart/form-data" style="margin-top: 16px;">
+        <input type="file" 
+               name="file" 
+               accept="image/jpeg,image/png,image/webp" 
+               required
+               id="passportFileInput"
+               style="display: none;"
+               onchange="this.form.submit()">
+        <button type="button" 
+                class="btn btn-primary" 
+                onclick="document.getElementById('passportFileInput').click()"
+                style="width: 100%;">
+          {% if master.passport_photo_path %}
+            🔄 Заменить фото
+          {% else %}
+            📤 Загрузить фото паспорта
+          {% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle);">
+    <a href="/masters" class="btn" style="background: var(--bg-soft); color: var(--text);">
+      ← Назад к списку мастеров
+    </a>
+  </div>
+</div>
+
+<!-- Модальное окно для просмотра фото -->
+<div class="modal-overlay" id="imageModal" onclick="hideImageModal()">
+  <div class="modal" style="max-width: 90vw; max-height: 90vh; padding: 0; background: transparent;" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="hideImageModal()" style="position: absolute; top: -40px; right: 0; background: rgba(0,0,0,0.5); color: white; border-radius: 50%; width: 40px; height: 40px;">×</button>
+    <img id="modalImage" src="" alt="Фото паспорта" style="max-width: 100%; max-height: 90vh; border-radius: 8px;">
+  </div>
+</div>
+
+<script>
+  function showImageModal(src) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('imageModal').classList.add('active');
+  }
+
+  function hideImageModal() {
+    document.getElementById('imageModal').classList.remove('active');
+  }
+
+  // Показываем toast при успешной загрузке
+  {% if request.query_params.get('uploaded') == '1' %}
+    showToast('Фото паспорта успешно загружено', 'success');
+  {% endif %}
+</script>
+
+<style>
+  @media (max-width: 768px) {
+    .card > div[style*="grid-template-columns"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+{% endblock %}
+

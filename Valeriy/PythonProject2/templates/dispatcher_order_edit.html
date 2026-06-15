@@ -1,0 +1,129 @@
+{% extends "dispatcher_base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">✏️ Редактировать заявку #{{ order.order_number }}</h1>
+  <p class="page-subtitle">Измените данные заявки</p>
+</div>
+
+<div class="card">
+  <form method="post" action="/order/{{ order.id }}">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <!-- Левая колонка -->
+      <div>
+        <div class="form-group">
+          <label class="form-label">🏙 Город</label>
+          <select name="city_id">
+            <option value="">— Не выбран —</option>
+            {% for city in cities %}
+              <option value="{{ city.id }}" {% if order.city_id == city.id %}selected{% endif %}>{{ city.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">📍 Улица</label>
+            <input type="text" name="street" value="{{ order.street or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏠 Дом</label>
+            <input type="text" name="house" value="{{ order.house or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🚪 Квартира</label>
+          <input type="text" name="flat" value="{{ order.flat or '' }}">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">🕐 Время с</label>
+            <input type="time" name="time_from" value="{{ order.time_from or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🕐 Время до</label>
+            <input type="time" name="time_to" value="{{ order.time_to or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📅 Дата выполнения</label>
+          <input type="date" name="order_date" value="{{ order.order_date.strftime('%Y-%m-%d') if order.order_date else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🔧 Тип техники</label>
+          <select name="equip_type">
+            <option value="">— Не выбран —</option>
+            {% for name, code in equip_types %}
+              <option value="{{ code }}" {% if order.equip_type == code %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Правая колонка -->
+      <div>
+        <div class="form-group">
+          <label class="form-label">📝 Описание *</label>
+          <textarea name="short_desc" rows="3" required>{{ order.short_desc or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📞 Источник *</label>
+          <input type="text" name="source" value="{{ order.source or '' }}" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">👤 Имя клиента</label>
+            <input type="text" name="client_name" value="{{ order.client_name or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📞 Телефон клиента</label>
+            <input type="tel" name="client_phone" value="{{ order.client_phone or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">💬 Комментарий</label>
+          <textarea name="comment" rows="2">{{ order.comment or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">👤 Назначить мастера/директора</label>
+          <select name="assigned_to">
+            <option value="-">— Автоматически (директор города) —</option>
+            <optgroup label="Директора">
+              {% for director in directors %}
+                <option value="{{ director.tg_id }}" {% if order.assigned_to == director.tg_id %}selected{% endif %}>
+                  {{ director.full_name or director.name or director.tg_id }} ({{ director.city_rel.name if director.city_rel else "—" }})
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Мастера">
+              {% for master in masters %}
+                <option value="{{ master.tg_id }}" {% if order.assigned_to == master.tg_id %}selected{% endif %}>
+                  {{ master.full_name or master.name or master.tg_id }} ({{ master.city_rel.name if master.city_rel else "—" }})
+                </option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle); display: flex; gap: 12px;">
+      <button type="submit" class="btn">
+        💾 Сохранить изменения
+      </button>
+      <a href="/order/{{ order.id }}" class="btn btn-secondary">
+        ❌ Отмена
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

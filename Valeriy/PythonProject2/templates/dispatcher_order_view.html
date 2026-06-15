@@ -1,0 +1,243 @@
+{% extends "dispatcher_base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📋 Заявка #{{ order.order_number }}</h1>
+  <p class="page-subtitle">Детальная информация о заявке</p>
+</div>
+
+<div class="card">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Статус
+        </label>
+        <div>
+          <span style="padding: 6px 12px; border-radius: 6px; font-size: 13px; background: var(--accent-soft); color: var(--accent); font-weight: 500;">
+            {{ order.status }}
+          </span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Город
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {{ order.city_rel.name if order.city_rel else "—" }}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Адрес
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {% if order.street %}
+            {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Время
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {% if order.time_from or order.time_to %}
+            {% if order.time_from %}{{ order.time_from }}{% endif %}
+            {% if order.time_from and order.time_to %} — {% endif %}
+            {% if order.time_to %}{{ order.time_to }}{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+      {% if order.order_date %}
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Дата выполнения
+          </label>
+          <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+            {{ order.order_date.strftime('%d.%m.%Y') if order.order_date else "—" }}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Тип техники
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {% if order.equip_type %}
+            {{ get_equip_type_name(order.equip_type) }}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Описание
+        </label>
+        <div style="font-size: 16px; color: var(--text); white-space: pre-wrap;">
+          {{ order.short_desc or "—" }}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Источник
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {{ order.source or "—" }}
+        </div>
+      </div>
+
+      {% if order.client_name or order.client_phone %}
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Клиент
+          </label>
+          <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+            {% if order.client_name %}{{ order.client_name }}{% endif %}
+            {% if order.client_name and order.client_phone %}<br>{% endif %}
+            {% if order.client_phone %}
+              <a href="tel:{{ order.client_phone }}" style="color: var(--accent); text-decoration: none;">
+                {{ order.client_phone }}
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if order.comment %}
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Комментарий
+          </label>
+          <div style="font-size: 16px; color: var(--text); white-space: pre-wrap;">
+            {{ order.comment }}
+          </div>
+        </div>
+      {% endif %}
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+          Создана
+        </label>
+        <div style="font-size: 16px; font-weight: 500; color: var(--text);">
+          {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—" }}
+        </div>
+      </div>
+
+      {% if order.bso_file_path %}
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            📄 БСО/Договор/Квитанция
+          </label>
+          <div style="padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <span style="font-size: 18px;">📄</span>
+              <span style="flex: 1; color: var(--text); font-size: 14px;">{{ order.bso_file_path.split('/')[-1] if order.bso_file_path else 'БСО не сохранен' }}</span>
+              <a href="/order/{{ order.id }}/bso-file" target="_blank" style="padding: 6px 12px; background: var(--accent); color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">
+                👁 Просмотр
+              </a>
+            </div>
+            <p style="margin: 0; font-size: 12px; color: var(--text-soft);">Документ сохранен в базе и доступен для просмотра</p>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if order.receipt_file_path or order.receipt_file_id %}
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 12px; color: var(--text-soft); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            🧾 Чек на расходы (ЗПЧ)
+          </label>
+          <div style="padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <span style="font-size: 18px;">🧾</span>
+              <span style="flex: 1; color: var(--text); font-size: 14px;">
+                {% if order.receipt_file_path %}
+                  {{ order.receipt_file_path.split('/')[-1] }}
+                {% elif order.receipt_file_id %}
+                  Чек из бота
+                {% endif %}
+              </span>
+              <a href="/order/{{ order.id }}/receipt-file" target="_blank" style="padding: 6px 12px; background: var(--accent); color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">
+                👁 Просмотр
+              </a>
+            </div>
+            <p style="margin: 0; font-size: 12px; color: var(--text-soft);">Документ сохранен в базе и доступен для просмотра</p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle); display: flex; gap: 12px;">
+    <a href="/order/{{ order.id }}/edit" class="btn">
+      ✏️ Редактировать
+    </a>
+    <a href="/order/{{ order.id }}/duplicate" class="btn btn-secondary">
+      📄 Создать похожую
+    </a>
+    <a href="/orders" class="btn btn-secondary">
+      ← Назад к списку заявок
+    </a>
+    <a href="/create-order" class="btn btn-secondary">
+      ➕ Новая заявка
+    </a>
+  </div>
+</div>
+
+{% if order.client_phone %}
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-header">
+      <h2 class="card-title">📞 История клиента</h2>
+      <p class="card-desc">Все заявки с номером {{ order.client_phone }}</p>
+    </div>
+
+    {% if client_orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Город</th>
+            <th>Дата</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in client_orders %}
+            <tr>
+              <td><strong>#{{ o.order_number }}</strong></td>
+              <td>{{ o.city_rel.name if o.city_rel else "—" }}</td>
+              <td>{{ o.created_at.strftime('%d.%m.%Y %H:%M') if o.created_at else "—" }}</td>
+              <td>
+                <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent);">
+                  {{ o.status }}
+                </span>
+              </td>
+              <td>
+                <a href="/order/{{ o.id }}" style="color: var(--accent); text-decoration: none;">Открыть</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p style="color: var(--text-soft);">Других заявок с этим номером не найдено.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <div>
+    <h1 class="page-title">👥 Управление пользователями</h1>
+    <p class="page-subtitle">Создание и управление пользователями веб-интерфейса</p>
+  </div>
+  <a href="/register" class="btn">➕ Создать пользователя</a>
+</div>
+
+{% if success %}
+  <div class="card" style="margin-bottom: 24px; background: var(--success); color: white;">
+    {% if success == "created" %}
+      ✅ Пользователь успешно создан
+    {% elif success == "updated" %}
+      ✅ Пользователь успешно обновлен
+    {% elif success == "deleted" %}
+      ✅ Пользователь успешно удален
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if error %}
+  <div class="card" style="margin-bottom: 24px; background: var(--danger); color: white;">
+    ❌ Ошибка: {{ error }}
+  </div>
+{% endif %}
+
+<div class="card">
+  <div style="overflow-x: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Логин</th>
+          <th>Имя</th>
+          <th>Роль</th>
+          <th>Город</th>
+          <th>VK ID</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>
+              <strong>{{ user.username or "—" }}</strong>
+              {% if user.password_hash %}
+                <span style="color: var(--success); font-size: 12px;" title="Пароль установлен">🔐</span>
+              {% else %}
+                <span style="color: var(--danger); font-size: 12px;" title="Пароль не установлен">⚠️</span>
+              {% endif %}
+            </td>
+            <td>{{ user.full_name or user.name or "—" }}</td>
+            <td>
+              {% if user.role == "owner" %}
+                <span style="color: #fbbf24;">👑 Собственник</span>
+              {% elif user.role == "director" %}
+                <span style="color: #3b82f6;">👔 Директор</span>
+              {% elif user.role == "dispatcher" %}
+                <span style="color: #8b5cf6;">📞 Диспетчер</span>
+              {% elif user.role == "master" %}
+                <span style="color: #10b981;">🔧 Мастер</span>
+              {% else %}
+                {{ user.role }}
+              {% endif %}
+            </td>
+            <td>{{ user.city_rel.name if user.city_rel else "—" }}</td>
+            <td>{{ user.tg_id }}</td>
+            <td>
+              <button onclick="openEditModal({{ user.tg_id }}, '{{ user.username or '' }}', '{{ user.full_name or user.name or '' }}', '{{ user.role }}', {{ user.city_id if user.city_id else 'null' }}, {{ 'true' if user.password_hash else 'false' }})" class="btn" style="padding: 6px 12px; font-size: 14px;">✏️ Изменить</button>
+              <form method="post" action="/users/{{ user.tg_id }}/delete" style="display: inline-block; margin-left: 8px;" onsubmit="return confirm('Вы уверены, что хотите удалить этого пользователя?');">
+                <button type="submit" class="btn" style="padding: 6px 12px; font-size: 14px; background: var(--danger);">🗑️ Удалить</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Модальное окно редактирования -->
+<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="card" style="max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="margin: 0;">✏️ Редактирование пользователя</h2>
+      <button onclick="closeEditModal()" style="background: none; border: none; color: var(--text); font-size: 24px; cursor: pointer;">×</button>
+    </div>
+    
+    <form method="post" id="editForm">
+      <div class="form-group">
+        <label class="form-label">Логин</label>
+        <input type="text" id="edit_username" readonly style="background: var(--bg-soft);">
+        <small style="color: var(--text-soft);">Логин нельзя изменить</small>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Полное имя</label>
+        <input type="text" name="full_name" id="edit_full_name" placeholder="ФИО пользователя">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Роль</label>
+        <select name="role" id="edit_role" required>
+          <option value="owner">👑 Собственник</option>
+          <option value="director">👔 Директор</option>
+          <option value="dispatcher">📞 Диспетчер</option>
+          <option value="master">🔧 Мастер</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Город</label>
+        <select name="city_id" id="edit_city_id">
+          <option value="None">— Не выбран —</option>
+          {% for city in cities %}
+            <option value="{{ city.id }}">{{ city.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Новый пароль</label>
+        <input type="password" name="new_password" id="edit_password" placeholder="Введите новый пароль" minlength="6">
+        <small style="color: var(--text-soft);">
+          <span id="password_status"></span>
+          <br>Минимум 6 символов. Оставьте пустым, чтобы не менять пароль.
+        </small>
+      </div>
+      
+      <div style="display: flex; gap: 12px; margin-top: 24px;">
+        <button type="submit" class="btn">✅ Сохранить</button>
+        <button type="button" onclick="closeEditModal()" class="btn btn-secondary">❌ Отмена</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditModal(tgId, username, fullName, role, cityId, hasPassword) {
+  document.getElementById('editForm').action = `/users/${tgId}/update`;
+  document.getElementById('edit_username').value = username || '';
+  document.getElementById('edit_full_name').value = fullName || '';
+  document.getElementById('edit_role').value = role || 'master';
+  document.getElementById('edit_city_id').value = cityId || 'None';
+  document.getElementById('edit_password').value = '';
+  
+  // Обновляем статус пароля
+  const statusEl = document.getElementById('password_status');
+  if (hasPassword) {
+    statusEl.textContent = '✅ Пароль установлен';
+    statusEl.style.color = 'var(--success)';
+  } else {
+    statusEl.textContent = '⚠️ Пароль не установлен - пользователь не сможет войти';
+    statusEl.style.color = 'var(--danger)';
+  }
+  
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+// Закрытие по клику вне модального окна
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeEditModal();
+  }
+});
+</script>
+
+{% endblock %}
+

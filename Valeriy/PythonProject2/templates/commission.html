@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1 class="page-title">💰 Проценты по направлениям</h1>
+    <p class="page-subtitle">Редактирование процентных ставок мастера по категориям техники</p>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <a href="/" class="btn" style="background: var(--bg-soft); color: var(--text); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid var(--border-subtle);">
+      ← Назад
+    </a>
+  </div>
+</div>
+
+{% if flash_message %}
+  {% if flash_type == 'success' %}
+  <div class="toast" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px 20px; border-radius: 10px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+    ✅ {{ flash_message }}
+  </div>
+  {% else %}
+  <div class="toast" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 16px 20px; border-radius: 10px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+    ⚠️ {{ flash_message }}
+  </div>
+  {% endif %}
+{% endif %}
+
+<form method="post">
+  {% for key, conf in settings.items() %}
+    <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(37,99,235,0.02) 100%); border: 1px solid rgba(37,99,235,0.2);">
+      <div class="card-header" style="background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(37,99,235,0.05) 100%); border-bottom: 1px solid rgba(37,99,235,0.2); padding: 20px; border-radius: 10px 10px 0 0;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
+            🔧
+          </div>
+          <div>
+            <h2 class="card-title" style="margin: 0; font-size: 20px; font-weight: 700; color: var(--text);">
+              {{ conf.title or key }}
+            </h2>
+            <p class="card-desc" style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-soft);">
+              Категория: {{ key }}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div style="padding: 24px;">
+        <div style="background: rgba(255,255,255,0.5); border-radius: 8px; padding: 12px; margin-bottom: 16px; border: 1px solid rgba(37,99,235,0.1);">
+          <p style="margin: 0; font-size: 13px; color: var(--text-soft); line-height: 1.5;">
+            💡 <strong>Информация:</strong> Изменяйте только колонку "% мастера". Диапазоны сумм (от/до) берутся из файла настроек и не редактируются.
+          </p>
+        </div>
+        
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;">
+            <thead>
+              <tr style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white;">
+                <th style="padding: 14px 16px; text-align: center; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">#</th>
+                <th style="padding: 14px 16px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">От, ₽</th>
+                <th style="padding: 14px 16px; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">До, ₽</th>
+                <th style="padding: 14px 16px; text-align: center; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">% мастера</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tier in conf.tiers %}
+                <tr class="tier-row" style="border-bottom: 1px solid var(--border-subtle); transition: all 0.2s ease;">
+                  <td style="padding: 16px; text-align: center; font-weight: 600; color: var(--text-soft); font-size: 14px;">
+                    {{ loop.index }}
+                  </td>
+                  <td style="padding: 16px; text-align: right; color: var(--text); font-size: 14px; font-weight: 500;">
+                    {{ tier[0] if tier[0] is not none else 0 }} ₽
+                  </td>
+                  <td style="padding: 16px; text-align: right; color: var(--text); font-size: 14px; font-weight: 500;">
+                    {% if tier[1] is not none %}
+                      {{ tier[1] }} ₽
+                    {% else %}
+                      <span style="color: var(--text-soft); font-size: 18px;">∞</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 16px; text-align: center;">
+                    <input type="number"
+                           step="0.1"
+                           min="0"
+                           max="100"
+                           name="pct_{{ key }}_{{ loop.index0 }}"
+                           value="{{ tier[2] }}"
+                           style="width: 100px; padding: 10px 12px; border: 2px solid var(--border-subtle); border-radius: 8px; font-size: 16px; font-weight: 600; text-align: center; transition: all 0.2s; background: rgba(37,99,235,0.05); color: var(--accent);"
+                           onfocus="this.style.borderColor='var(--accent)'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';"
+                           onblur="this.style.borderColor=''; this.style.boxShadow='';">
+                    <span style="color: var(--text-soft); font-size: 14px; margin-left: 4px;">%</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <div style="margin-top: 16px; padding: 12px; background: rgba(16,185,129,0.1); border-radius: 8px; border: 1px solid rgba(16,185,129,0.2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 13px; color: var(--text-soft);">
+              <strong style="color: #10b981;">💡 Подсказка:</strong> Процент компании рассчитывается автоматически (100% - % мастера)
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #10b981;">
+              {% set total_tiers = conf.tiers|length %}
+              Всего тиров: {{ total_tiers }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+  
+  <div style="display: flex; gap: 12px; margin-top: 32px; justify-content: flex-end; flex-wrap: wrap;">
+    <a href="/" class="btn btn-secondary" style="text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500;">
+      ❌ Отмена
+    </a>
+    <button type="submit" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(16,185,129,0.3); border: none; cursor: pointer; transition: all 0.2s;">
+      💾 Сохранить проценты
+    </button>
+  </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Hover эффекты для строк таблицы
+  const tierRows = document.querySelectorAll('.tier-row');
+  tierRows.forEach(row => {
+    row.addEventListener('mouseenter', function() {
+      this.style.background = 'rgba(37,99,235,0.05)';
+    });
+    row.addEventListener('mouseleave', function() {
+      this.style.background = '';
+    });
+  });
+  
+  // Валидация процентов при вводе
+  const percentInputs = document.querySelectorAll('input[type="number"][name^="pct_"]');
+  percentInputs.forEach(input => {
+    input.addEventListener('input', function() {
+      const value = parseFloat(this.value);
+      if (value < 0) {
+        this.value = 0;
+      } else if (value > 100) {
+        this.value = 100;
+      }
+    });
+    
+    // Подсветка измененных значений
+    const originalValue = parseFloat(this.value);
+    input.addEventListener('change', function() {
+      const currentValue = parseFloat(this.value);
+      if (currentValue !== originalValue) {
+        this.style.background = 'rgba(251,191,36,0.15)';
+        this.style.borderColor = '#fbbf24';
+      } else {
+        this.style.background = 'rgba(37,99,235,0.05)';
+        this.style.borderColor = '';
+      }
+    });
+  });
+  
+  // Подтверждение перед отправкой формы
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      const changedInputs = document.querySelectorAll('input[type="number"][name^="pct_"]');
+      let hasChanges = false;
+      changedInputs.forEach(input => {
+        if (input.style.background.includes('rgba(251,191,36')) {
+          hasChanges = true;
+        }
+      });
+      
+      if (!hasChanges) {
+        const confirmed = confirm('Вы не внесли изменений. Сохранить текущие значения?');
+        if (!confirmed) {
+          e.preventDefault();
+        }
+      }
+    });
+  }
+});
+</script>
+
+<style>
+  @media (max-width: 768px) {
+    .page-header > div {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+    
+    table {
+      font-size: 12px;
+    }
+    
+    th, td {
+      padding: 10px 8px !important;
+    }
+    
+    input[type="number"] {
+      width: 80px !important;
+      font-size: 14px !important;
+    }
+  }
+</style>
+{% endblock %}

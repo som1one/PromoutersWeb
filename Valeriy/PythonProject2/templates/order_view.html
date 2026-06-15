@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📋 Заявка #{{ order.order_number }}</h1>
+  <p class="page-subtitle">Просмотр и редактирование заявки</p>
+</div>
+
+{% if request.query_params.get('updated') == '1' %}
+  <div class="toast" style="position: relative; top: 0; right: 0; margin-bottom: 20px;">
+    ✅ Заявка успешно обновлена!
+  </div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/order/{{ order.id }}" enctype="multipart/form-data">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <!-- Левая колонка -->
+      <div>
+        <div class="form-group">
+          <label class="form-label">📊 Статус *</label>
+          <select name="status" required>
+            {% for s in statuses %}
+              <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ get_status_name_ru(s) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🏙 Город</label>
+          <select name="city_id">
+            <option value="">— Не выбран —</option>
+            {% for city in cities %}
+              <option value="{{ city.id }}" {% if order.city_id == city.id %}selected{% endif %}>{{ city.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">📍 Улица</label>
+            <input type="text" name="street" value="{{ order.street or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏠 Дом</label>
+            <input type="text" name="house" value="{{ order.house or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🚪 Квартира</label>
+          <input type="text" name="flat" value="{{ order.flat or '' }}">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">🕐 Время с</label>
+            <input type="time" name="time_from" value="{{ order.time_from or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🕐 Время до</label>
+            <input type="time" name="time_to" value="{{ order.time_to or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📅 Дата выполнения</label>
+          <input type="date" name="order_date" value="{{ order.order_date.strftime('%Y-%m-%d') if order.order_date else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🔧 Тип техники</label>
+          <select name="equip_type">
+            <option value="">— Не выбран —</option>
+            {% for name, code in equip_types %}
+              <option value="{{ code }}" {% if order.equip_type == code %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Правая колонка -->
+      <div>
+        <div class="form-group">
+          <label class="form-label">📝 Описание</label>
+          <textarea name="short_desc" rows="3">{{ order.short_desc or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">📞 Источник</label>
+          <input type="text" name="source" value="{{ order.source or '' }}">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">👤 Имя клиента</label>
+            <input type="text" name="client_name" value="{{ order.client_name or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">📞 Телефон клиента</label>
+            {% if hide_phone %}
+              <input type="tel" name="client_phone" value="{{ order.client_phone or '' }}" disabled style="opacity: 0.5; cursor: not-allowed;" title="Телефон скрыт для вашей роли">
+              <p style="font-size: 12px; color: var(--text-soft); margin-top: 4px;">🔒 Телефон скрыт для вашей роли</p>
+            {% else %}
+              <input type="tel" name="client_phone" value="{{ order.client_phone or '' }}">
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">💬 Комментарий</label>
+          <textarea name="comment" rows="2">{{ order.comment or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">👤 Назначить мастера/директора</label>
+          <select name="assigned_to">
+            <option value="-">— Не назначен —</option>
+            <optgroup label="Директора">
+              {% for director in directors %}
+                <option value="{{ director.tg_id }}" {% if order.assigned_to == director.tg_id %}selected{% endif %}>
+                  {{ director.full_name or director.name or director.tg_id }} ({{ director.city_rel.name if director.city_rel else "—" }})
+                </option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Мастера">
+              {% for master in masters %}
+                <option value="{{ master.tg_id }}" {% if order.assigned_to == master.tg_id %}selected{% endif %}>
+                  {{ master.full_name or master.name or master.tg_id }} ({{ master.city_rel.name if master.city_rel else "—" }})
+                </option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">💰 Сумма заказа</label>
+            <input type="number" step="0.01" name="sum_amount" value="{{ order.sum_amount or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">💵 Оплачено</label>
+            <input type="number" step="0.01" name="paid_amount" value="{{ order.paid_amount or order.sum_amount or '' }}">
+          </div>
+        </div>
+        {% if order.debt_amount and order.debt_amount > 0 %}
+        <div class="form-row" style="background: #fff3cd; padding: 12px; border-radius: 8px; border: 1px solid #ffc107; margin-bottom: 16px;">
+          <div class="form-group">
+            <label class="form-label" style="color: #856404;">⚠️ Долг</label>
+            <div style="font-size: 18px; font-weight: 600; color: #856404;">{{ "%.2f"|format(order.debt_amount) }} ₽</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color: #856404;">📅 Дата погашения</label>
+            {% if order.debt_payment_date %}
+              <div style="font-size: 16px; color: #856404;">{{ order.debt_payment_date.strftime('%d.%m.%Y') }}</div>
+            {% else %}
+              <div style="font-size: 14px; color: #856404;">Не указана</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">📄 Цена СД</label>
+            <input type="number" step="0.01" name="sd_price" value="{{ order.sd_price or '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">🔧 Сумма ЗПЧ</label>
+            <input type="number" step="0.01" name="zpch_sum" value="{{ order.zpch_sum or '' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🔧 Сумма ЗПЧ</label>
+          <input type="number" step="0.01" name="zpch_sum" value="{{ order.zpch_sum or '' }}">
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="is_warranty" {% if order.is_warranty %}checked{% endif %}>
+            <span>Гарантийный выезд</span>
+          </label>
+          <div style="margin-top: 10px;">
+            {% if order.is_warranty %}
+              <div style="padding: 10px 12px; background: rgba(168,85,247,0.12); border: 1px solid rgba(168,85,247,0.25); border-radius: 10px; color: #a855f7; font-weight: 600;">
+                🛡 Гарантия оформлена{% if order.warranty_source_order_id %} (источник: #{{ order.warranty_source_order_id }}){% endif %}
+              </div>
+            {% else %}
+              {% if warranty_source %}
+                <div style="padding: 10px 12px; background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.25); border-radius: 10px; margin-bottom: 10px;">
+                  <div style="font-weight: 700; color: #16a34a;">✅ Доступна гарантия</div>
+                  <div style="font-size: 13px; color: var(--text-soft); margin-top: 4px;">
+                    По заявке #{{ warranty_source.order_number }}{% if warranty_source.warranty_until %} до {{ warranty_source.warranty_until.strftime('%d.%m.%Y') }}{% endif %}
+                  </div>
+                </div>
+                <form method="post" action="/order/{{ order.id }}/make-warranty" style="margin: 0;">
+                  <input type="hidden" name="source_order_id" value="{{ warranty_source.id }}">
+                  <button type="submit" class="btn" {% if not can_make_warranty %}disabled{% endif %} style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    🛡 Оформить гарантию
+                  </button>
+                </form>
+              {% else %}
+                <button type="button" class="btn btn-secondary" disabled title="{{ warranty_reason or 'Недоступно' }}" style="opacity: 0.7;">
+                  🛡 Оформить гарантию (недоступно)
+                </button>
+                {% if warranty_reason %}
+                  <div style="font-size: 12px; color: var(--text-soft); margin-top: 6px;">{{ warranty_reason }}</div>
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">📄 БСО/Договор/Квитанция</label>
+          {% if order.bso_file_path %}
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px;">
+              <div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div style="font-size: 18px;">📄</div>
+                <div style="flex: 1; min-width: 200px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--text);">{{ order.bso_file_path.split('/')[-1] }}</div>
+                  <div style="font-size: 12px; color: var(--text-soft); margin-top: 4px;">Файл хранится в системе и доступен к просмотру</div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <a href="/order/{{ order.id }}/bso-file" target="_blank" style="padding: 8px 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    👁 Открыть
+                  </a>
+                  <a href="/order/{{ order.id }}/bso-file" download style="padding: 8px 12px; background: var(--bg); color: var(--text); text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid var(--border-subtle); display: inline-flex; align-items: center; gap: 6px;">
+                    ⬇️ Скачать
+                  </a>
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <div style="margin-bottom: 12px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
+              <p style="margin: 0; font-size: 12px; color: #856404;">
+                ⚠️ БСО не был сохранен для этой заявки. Вы можете загрузить БСО сейчас.
+              </p>
+            </div>
+          {% endif %}
+          <input type="file" name="bso_file" accept=".jpg,.jpeg,.png,.webp,.pdf" style="width: 100%; padding: 8px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text);">
+          <p style="margin-top: 4px; font-size: 12px; color: var(--text-soft);">JPG, PNG, WEBP, PDF. Файл сохраняется и доступен для просмотра.</p>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">🧾 Чек на расходы (ЗПЧ - запчасти)</label>
+          {% if order.receipt_file_path or order.receipt_file_id %}
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px;">
+              <div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div style="font-size: 18px;">🧾</div>
+                <div style="flex: 1; min-width: 200px;">
+                  <div style="font-size: 14px; font-weight: 600; color: var(--text);">
+                    {% if order.receipt_file_path %}
+                      {{ order.receipt_file_path.split('/')[-1] }}
+                    {% elif order.receipt_file_id %}
+                      Чек из бота (ID: {{ order.receipt_file_id[:20] }}...)
+                    {% endif %}
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-soft); margin-top: 4px;">Чек хранится в системе и доступен к просмотру</div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <a href="/order/{{ order.id }}/receipt-file" target="_blank" style="padding: 8px 12px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                    👁 Открыть
+                  </a>
+                  <a href="/order/{{ order.id }}/receipt-file" download style="padding: 8px 12px; background: var(--bg); color: var(--text); text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid var(--border-subtle); display: inline-flex; align-items: center; gap: 6px;">
+                    ⬇️ Скачать
+                  </a>
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <div style="margin-bottom: 12px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
+              <p style="margin: 0; font-size: 12px; color: #856404;">
+                ⚠️ Чек не был загружен. Вы можете загрузить чек сейчас.
+              </p>
+            </div>
+          {% endif %}
+          <input type="file" name="receipt_file" accept=".jpg,.jpeg,.png,.webp,.pdf" style="width: 100%; padding: 8px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text);">
+          <p style="margin-top: 4px; font-size: 12px; color: var(--text-soft);">JPG, PNG, WEBP, PDF. Файл сохраняется и доступен для просмотра.</p>
+        </div>
+      </div>
+    </div>
+    
+    {% if order.sum_amount or order.zpch_sum %}
+    <div class="card" style="margin-top: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+      <div class="card-title" style="color: white;">💰 Расчет</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 16px;">
+        <div>
+          <div style="font-size: 12px; opacity: 0.9;">Общая сумма</div>
+          <div style="font-size: 20px; font-weight: 600;">{{ "%.2f"|format(order.sum_amount or 0) }} ₽</div>
+        </div>
+        {% if order.paid_amount %}
+        <div>
+          <div style="font-size: 12px; opacity: 0.9;">Оплачено</div>
+          <div style="font-size: 20px; font-weight: 600;">{{ "%.2f"|format(order.paid_amount) }} ₽</div>
+        </div>
+        {% endif %}
+        {% if order.debt_amount and order.debt_amount > 0 %}
+        <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 8px;">
+          <div style="font-size: 12px; opacity: 0.9;">⚠️ Долг</div>
+          <div style="font-size: 20px; font-weight: 600;">{{ "%.2f"|format(order.debt_amount) }} ₽</div>
+          {% if order.debt_payment_date %}
+          <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">До {{ order.debt_payment_date.strftime('%d.%m.%Y') }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div>
+          <div style="font-size: 12px; opacity: 0.9;">Расходы ЗПЧ</div>
+          <div style="font-size: 20px; font-weight: 600;">{{ "%.2f"|format(order.zpch_sum or 0) }} ₽</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; opacity: 0.9;">Чистая сумма</div>
+          <div style="font-size: 24px; font-weight: 700;">
+            {{ "%.2f"|format((order.sum_amount or 0) - (order.zpch_sum or 0) - (order.sd_price or 0)) }} ₽
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle); display: flex; gap: 12px;">
+      <button type="submit" class="btn">
+        💾 Сохранить изменения
+      </button>
+      <a href="/orders" class="btn btn-secondary">
+        ← Назад к списку
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- Информация о создании -->
+<div class="card" style="margin-top: 20px;">
+  <div class="card-header">
+    <h2 class="card-title">ℹ️ Информация</h2>
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div>
+      <strong>Создана:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—" }}
+    </div>
+    <div>
+      <strong>Создал:</strong> 
+      {% if creator %}
+        {{ creator.full_name or creator.name or ('VK ID: ' + order.created_by|string) }}
+      {% elif order.created_by %}
+        VK ID: {{ order.created_by }}
+      {% else %}
+        —
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,51 @@
+{% extends "master_base.html" %}
+
+{% block content %}
+{% if city %}
+<div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+  <div style="font-size: 18px; font-weight: 600;">🏙 Филиал: {{ city.name }}</div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">👥 Мастера филиала ({{ masters_stats|length }})</div>
+  
+  {% if masters_stats %}
+    <table>
+      <thead>
+        <tr>
+          <th>Мастер</th>
+          <th>Телефон</th>
+          <th>Активных заявок</th>
+          <th>Закрыто</th>
+          <th>К сдаче кассы</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in masters_stats %}
+          {% set master = stat.master %}
+          <tr>
+            <td><strong>{{ master.full_name or master.name or master.tg_id }}</strong></td>
+            <td>{{ master.phone or "—" }}</td>
+            <td>
+              <span style="color: #f59e0b; font-weight: 600;">{{ stat.active_orders }}</span>
+            </td>
+            <td>
+              <span style="color: #22c55e; font-weight: 600;">{{ stat.completed_orders }}</span>
+            </td>
+            <td>
+              <span style="color: #10b981; font-weight: 600;">{{ stat.pending_cash }}</span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">👥</div>
+      <p>В филиале нет мастеров</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

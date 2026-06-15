@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: serviceuser
+      POSTGRES_PASSWORD: servicepass
+      POSTGRES_DB: servicebot
+    healthcheck:
+      # важно: указываем БД servicebot, чтобы не было ошибки "database \"serviceuser\" does not exist"
+      test: ["CMD-SHELL", "pg_isready -U serviceuser -d servicebot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Порт не пробрасываем наружу - доступ только из внутренней сети Docker
+    # Если нужен внешний доступ для локальной разработки, используйте: ports: - "127.0.0.1:5432:5432" (только localhost)
+    # ports:
+    #   - "5432:5432"
+
+  bot:
+    image: greenteeea/vk-bot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WAIT_FOR_HOST: postgres
+      WAIT_FOR_PORT: 5432
+      WAIT_FOR_TIMEOUT: 90
+      # Переопределяем DATABASE_URL для использования имени сервиса postgres вместо localhost
+      DATABASE_URL: postgresql+psycopg2://serviceuser:servicepass@postgres:5432/servicebot
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - postgres
+
+  telegram_bot:
+    image: greenteeea/vk-bot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WAIT_FOR_HOST: postgres
+      WAIT_FOR_PORT: 5432
+      WAIT_FOR_TIMEOUT: 90
+      # Переопределяем DATABASE_URL для использования имени сервиса postgres вместо localhost
+      DATABASE_URL: postgresql+psycopg2://serviceuser:servicepass@postgres:5432/servicebot
+    volumes:
+      - ./data:/app/data
+      - ./telegram_bot.py:/app/telegram_bot.py
+    depends_on:
+      - postgres
+    entrypoint: []
+    command: ["python", "main.py", "telegram"]
+
+  admin:
+    image: greenteeea/vk-bot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Переопределяем DATABASE_URL для использования имени сервиса postgres вместо localhost
+      DATABASE_URL: postgresql+psycopg2://serviceuser:servicepass@postgres:5432/servicebot
+    depends_on:
+      - postgres
+    volumes:
+      - ./data:/app/data
+    entrypoint: []
+    command: ["python", "admin_fastapi.py"]
+    ports:
+      - "8000:8000"
+
+  dispatcher:
+    image: greenteeea/vk-bot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Переопределяем DATABASE_URL для использования имени сервиса postgres вместо localhost
+      DATABASE_URL: postgresql+psycopg2://serviceuser:servicepass@postgres:5432/servicebot
+    depends_on:
+      - postgres
+    volumes:
+      - ./data:/app/data
+    entrypoint: []
+    command: ["python", "dispatcher_admin.py"]
+    ports:
+      - "8001:8001"
+
+  master:
+    image: greenteeea/vk-bot:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Переопределяем DATABASE_URL для использования имени сервиса postgres вместо localhost
+      DATABASE_URL: postgresql+psycopg2://serviceuser:servicepass@postgres:5432/servicebot
+    depends_on:
+      - postgres
+    volumes:
+      - ./data:/app/data
+    entrypoint: []
+    command: ["python", "master_admin.py"]
+    ports:
+      - "8002:8002"
+
+volumes:
+  pgdata:

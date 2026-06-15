@@ -1,0 +1,68 @@
+{% extends "master_base.html" %}
+
+{% block content %}
+{% if city %}
+<div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+  <div style="font-size: 18px; font-weight: 600;">🏙 Филиал: {{ city.name }}</div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-title">📦 СД филиала (техника на руках у мастеров)</div>
+  
+  {% if masters_dict %}
+    {% for master_id, data in masters_dict.items() %}
+      {% set master = data.master %}
+      {% set orders = data.orders %}
+      <div style="margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid #e2e8f0;">
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #10b981;">
+          👤 {{ master.full_name or master.name or master.tg_id if master else master_id }} — {{ orders|length }} заявок
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Адрес</th>
+              <th>Тип техники</th>
+              <th>Статус</th>
+              <th>Дата</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in orders %}
+              <tr>
+                <td><strong>#{{ order.order_number }}</strong></td>
+                <td>
+                  {% if order.street %}
+                    {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>{{ get_equip_type_name(order.equip_type) if order.equip_type else "—" }}</td>
+                <td>
+                  <span class="status-badge status-{{ order.status }}">
+                    {{ get_status_name_ru(order.status) }}
+                  </span>
+                </td>
+                <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else "—" }}</td>
+                <td>
+                  <a href="/order/{{ order.id }}" class="btn" style="padding: 6px 12px; font-size: 12px;">Открыть</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">📦</div>
+      <p>У мастеров филиала нет техники на руках</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

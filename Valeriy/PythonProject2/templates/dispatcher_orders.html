@@ -1,0 +1,178 @@
+{% extends "dispatcher_base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1 class="page-title">📋 Мои заявки</h1>
+    <p class="page-subtitle">Список всех созданных вами заявок</p>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <a href="/create-order" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+      ➕ Создать заявку
+    </a>
+  </div>
+</div>
+
+<!-- Компактные фильтры -->
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0.05) 100%); border: 1px solid rgba(16,185,129,0.2);">
+  <form method="get" action="/orders" id="filterForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">🔍 Поиск</label>
+      <input type="text" name="search" placeholder="№, адрес, клиент..." value="{{ current_filters.search or '' }}" style="padding: 12px; border-radius: 8px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📊 Статус</label>
+      <select name="status" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+        <option value="">Все статусы</option>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if current_filters.status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📅 С</label>
+      <input type="date" name="date_from" value="{{ current_filters.date_from or '' }}" style="padding: 12px; border-radius: 8px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📅 По</label>
+      <input type="date" name="date_to" value="{{ current_filters.date_to or '' }}" style="padding: 12px; border-radius: 8px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0; display: flex; gap: 8px;">
+      <button type="submit" class="btn" style="flex: 1; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">🔍 Применить</button>
+      <a href="/orders" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">🔄 Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<!-- Список заявок в виде карточек -->
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h2 class="card-title">📋 Мои заявки</h2>
+      <p class="card-desc">Найдено: {{ orders|length }} заявок</p>
+    </div>
+  </div>
+  
+  {% if orders %}
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: var(--bg-soft); border-bottom: 2px solid var(--border-subtle);">
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">№</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Дата</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Статус</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Город</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Адрес</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Тип</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Мастер</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr class="order-row" style="border-bottom: 1px solid var(--border-subtle); transition: all 0.2s ease; cursor: pointer;" onclick="window.location.href='/order/{{ order.id }}'">
+              <td style="padding: 14px 12px;">
+                <a href="/order/{{ order.id }}" style="font-size: 16px; font-weight: 700; color: var(--accent); text-decoration: none;">#{{ order.order_number }}</a>
+              </td>
+              <td style="padding: 14px 12px; color: var(--text-soft); font-size: 14px;">
+                {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—" }}
+              </td>
+              <td style="padding: 14px 12px;">
+                <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                  {{ order.status }}
+                </span>
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.city_rel %}
+                  {{ order.city_rel.name }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.street %}
+                  {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.equip_type %}
+                  {{ get_equip_type_name(order.equip_type) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.assigned_to %}
+                  {% set master = masters_dict.get(order.assigned_to) if masters_dict else None %}
+                  {% if master %}
+                    {{ master.full_name or master.name or master.tg_id }}
+                  {% else %}
+                    ID: {{ order.assigned_to }}
+                  {% endif %}
+                {% else %}
+                  <span style="color: var(--text-soft);">Не назначен</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 60px 20px; color: var(--text-soft);">
+      <div style="font-size: 64px; margin-bottom: 16px;">📋</div>
+      <p style="font-size: 16px; margin: 0;">Пока нет созданных заявок</p>
+      <p style="font-size: 14px; margin-top: 8px; opacity: 0.7; margin-bottom: 24px;">Создайте первую заявку прямо сейчас</p>
+      <a href="/create-order" class="btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(16,185,129,0.3);">
+        ➕ Создать первую заявку
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+// Добавляем hover эффекты для строк таблицы
+document.addEventListener('DOMContentLoaded', function() {
+  const orderRows = document.querySelectorAll('.order-row');
+  orderRows.forEach(row => {
+    row.addEventListener('mouseenter', function() {
+      this.style.background = 'rgba(37,99,235,0.05)';
+    });
+    row.addEventListener('mouseleave', function() {
+      this.style.background = '';
+    });
+  });
+  
+  // Улучшенные стили для инпутов при фокусе
+  const inputs = document.querySelectorAll('#filterForm input, #filterForm select');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.style.borderColor = 'var(--accent)';
+      this.style.boxShadow = '0 0 0 3px var(--accent-soft)';
+    });
+    input.addEventListener('blur', function() {
+      this.style.borderColor = '';
+      this.style.boxShadow = '';
+    });
+  });
+});
+</script>
+
+<style>
+  @media (max-width: 768px) {
+    #ordersGrid {
+      grid-template-columns: 1fr !important;
+    }
+    
+    .page-header > div {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "master_base.html" %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-title">💰 Касса</div>
+  <div style="font-size: 24px; font-weight: 700; color: #10b981; margin: 16px 0;">
+    К сдаче компании: {{ "%.2f"|format(total_company) }} ₽
+  </div>
+  <p style="color: #64748b; font-size: 14px;">
+    Заявки со статусом "СД" готовы к сдаче кассы
+  </p>
+</div>
+
+<div class="card">
+  <div class="card-title">📋 Заявки к сдаче</div>
+  
+  {% if orders %}
+    <table>
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Город</th>
+          <th>Сумма</th>
+          <th>ЗПЧ</th>
+          <th>Чистый чек</th>
+          <th>К сдаче</th>
+          <th>Дата</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in orders %}
+          {% set order = item.order %}
+          <tr>
+            <td><strong>#{{ order.order_number }}</strong></td>
+            <td>{{ order.city_rel.name if order.city_rel else "—" }}</td>
+            <td>{{ "%.2f"|format(item.order_sum) }} ₽</td>
+            <td>{{ "%.2f"|format(item.zpch_sum) }} ₽</td>
+            <td>{{ "%.2f"|format(item.net_amount) }} ₽</td>
+            <td><strong style="color: #10b981;">{{ "%.2f"|format(item.company_share) }} ₽</strong></td>
+            <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">✅</div>
+      <p>Все заявки по кассе сданы</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+

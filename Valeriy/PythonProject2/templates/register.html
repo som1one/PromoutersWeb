@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">➕ Регистрация пользователя</h1>
+  <p class="page-subtitle">Создание нового пользователя для веб-интерфейса</p>
+</div>
+
+{% if errors %}
+  <div class="card" style="margin-bottom: 24px; background: var(--danger); color: white;">
+    <ul style="margin: 0; padding-left: 20px;">
+      {% for error in errors %}
+        <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/register">
+    <div class="form-group">
+      <label class="form-label">Логин *</label>
+      <input type="text" name="username" value="{{ form_data.username if form_data else '' }}" required minlength="3" placeholder="Введите логин">
+      <small style="color: var(--text-soft);">Минимум 3 символа, должен быть уникальным</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Пароль *</label>
+      <input type="password" name="password" required minlength="6" placeholder="Введите пароль">
+      <small style="color: var(--text-soft);">Минимум 6 символов</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Подтверждение пароля *</label>
+      <input type="password" name="password_confirm" required minlength="6" placeholder="Повторите пароль">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Полное имя</label>
+      <input type="text" name="full_name" value="{{ form_data.full_name if form_data else '' }}" placeholder="ФИО пользователя">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Роль *</label>
+      <select name="role" required>
+        <option value="">— Выберите роль —</option>
+        <option value="owner" {% if form_data and form_data.role == 'owner' %}selected{% endif %}>👑 Собственник</option>
+        <option value="director" {% if form_data and form_data.role == 'director' %}selected{% endif %}>👔 Директор</option>
+        <option value="dispatcher" {% if form_data and form_data.role == 'dispatcher' %}selected{% endif %}>📞 Диспетчер</option>
+        <option value="master" {% if form_data and form_data.role == 'master' %}selected{% endif %}>🔧 Мастер</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Город</label>
+      <select name="city_id">
+        <option value="">— Не выбран —</option>
+        {% for city in cities %}
+          <option value="{{ city.id }}" {% if form_data and (form_data.city_id|string) == (city.id|string) %}selected{% endif %}>
+            {{ city.name }}
+          </option>
+        {% endfor %}
+      </select>
+      <small style="color: var(--text-soft);">Обязательно для директора</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">VK ID (опционально)</label>
+      <input type="number" name="tg_id" value="{{ form_data.tg_id if form_data else '' }}" placeholder="Оставьте пустым для автогенерации">
+      <small style="color: var(--text-soft);">Если не указан, будет сгенерирован автоматически</small>
+    </div>
+    
+    <div style="display: flex; gap: 12px; margin-top: 24px;">
+      <button type="submit" class="btn">✅ Создать пользователя</button>
+      <a href="/users" class="btn btn-secondary">❌ Отмена</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

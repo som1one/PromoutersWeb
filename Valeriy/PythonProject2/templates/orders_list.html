@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+  <div>
+    <h1 class="page-title">📋 Заявки</h1>
+    <p class="page-subtitle">Список всех заявок с фильтрацией и поиском</p>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <a href="/create-order" class="btn" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
+      ➕ Создать заявку
+    </a>
+    <a href="/" class="btn" style="background: var(--bg-soft); color: var(--text); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid var(--border-subtle);">
+      ← Назад
+    </a>
+  </div>
+</div>
+
+<!-- Статистика -->
+{% if statistics %}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px;">
+  <div class="stat-card" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Всего заявок</div>
+      <div style="font-size: 36px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ statistics.total }}</div>
+    </div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Закрыто</div>
+      <div style="font-size: 36px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ statistics.completed }}</div>
+    </div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Принято</div>
+      <div style="font-size: 36px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ statistics.accepted }}</div>
+    </div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Не закрыто</div>
+      <div style="font-size: 36px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ statistics.not_completed }}</div>
+    </div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Чистая сумма</div>
+      <div style="font-size: 28px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ "%.0f"|format(statistics.total_net_sum) }} ₽</div>
+    </div>
+  </div>
+  <div class="stat-card" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+    <div style="position: relative; z-index: 1;">
+      <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px; font-weight: 500;">Средний чек</div>
+      <div style="font-size: 28px; font-weight: 700; margin-bottom: 4px; line-height: 1;">{{ "%.0f"|format(statistics.avg_check) }} ₽</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Компактные фильтры -->
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(37,99,235,0.05) 100%); border: 1px solid rgba(37,99,235,0.2);">
+  <form method="get" action="/orders" id="filterForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">🔍 Поиск</label>
+      <input type="text" name="search" placeholder="№, адрес, клиент..." value="{{ current_filters.search or '' }}" style="padding: 12px; border-radius: 8px;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📊 Статус</label>
+      <select name="status" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+        <option value="">Все статусы</option>
+        {% for s in statuses %}
+          <option value="{{ s }}" {% if current_filters.status == s %}selected{% endif %}>{{ get_status_name_ru(s) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">🏙 Город</label>
+      <select name="city_id" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+        <option value="">Все города</option>
+        {% for city in cities %}
+          <option value="{{ city.id }}" {% if current_filters.city_id == city.id|string %}selected{% endif %}>{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">👤 Мастер</label>
+      <select name="master_id" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+        <option value="">Все мастера</option>
+        {% for master in masters %}
+          <option value="{{ master.tg_id }}" {% if current_filters.master_id == master.tg_id|string %}selected{% endif %}>
+            {{ master.full_name or master.name or master.tg_id }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📅 Период</label>
+      <select name="period" id="periodSelect" onchange="updateDateInputs(this.value)" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+        <option value="current_month" {% if current_filters.period == 'current_month' or (not current_filters.period and not current_filters.date_from) %}selected{% endif %}>Текущий месяц</option>
+        <option value="all" {% if current_filters.period == 'all' %}selected{% endif %}>Все время</option>
+        <option value="custom" {% if current_filters.date_from or current_filters.date_to %}selected{% endif %}>Выбрать даты</option>
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📅 С</label>
+      <input type="date" name="date_from" id="date_from" value="{{ current_filters.date_from or '' }}" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">📅 По</label>
+      <input type="date" name="date_to" id="date_to" value="{{ current_filters.date_to or '' }}" style="padding: 12px; border-radius: 8px; cursor: pointer;">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 0; display: flex; gap: 8px;">
+      <button type="submit" class="btn" style="flex: 1; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">🔍 Применить</button>
+      <a href="/orders" class="btn btn-secondary" style="flex: 1; text-align: center; text-decoration: none;">🔄 Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<!-- Список заявок в виде карточек -->
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h2 class="card-title">📋 Список заявок</h2>
+      <p class="card-desc">
+        {% if statistics.found %}
+          Найдено: {{ statistics.found }}{% if statistics.total > statistics.found %} из {{ statistics.total }}{% endif %} заявок
+        {% else %}
+          Найдено: {{ orders|length }} заявок
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  
+  {% if orders %}
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: var(--bg-soft); border-bottom: 2px solid var(--border-subtle);">
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">№</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Дата</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Статус</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Город</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Адрес</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Клиент</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Мастер</th>
+            <th style="padding: 12px; text-align: left; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Тип</th>
+            <th style="padding: 12px; text-align: right; font-size: 12px; color: var(--text-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr class="order-row" style="border-bottom: 1px solid var(--border-subtle); transition: all 0.2s ease; cursor: pointer;" onclick="window.location.href='/order/{{ order.id }}'">
+              <td style="padding: 14px 12px;">
+                <a href="/order/{{ order.id }}" style="font-size: 16px; font-weight: 700; color: var(--accent); text-decoration: none;">#{{ order.order_number }}</a>
+              </td>
+              <td style="padding: 14px 12px; color: var(--text-soft); font-size: 14px;">
+                {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else "—" }}
+              </td>
+              <td style="padding: 14px 12px;">
+                {% if order.is_warranty %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(168,85,247,0.15); color: #a855f7; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; margin-right: 6px;">
+                    🛡 Гарантия
+                  </span>
+                {% endif %}
+                {% if order.status == "completed" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(34,197,94,0.15); color: #22c55e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    ✅ {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "done_pending_sum" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    ⏳ {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status in ["accepted", "on_place"] %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,0.15); color: #3b82f6; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    🔄 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "to_sd" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    🔧 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "new" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(148,163,184,0.15); color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    📋 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "declined" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    ❌ {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "cancelled" %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: rgba(148,163,184,0.2); color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    🚫 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% else %}
+                  <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">
+                    {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.city_rel %}
+                  {{ order.city_rel.name }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.street %}
+                  {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.client_name %}
+                  <div style="font-weight: 500;">{{ order.client_name }}</div>
+                  {% if order.client_phone and not hide_phone %}
+                    <div style="font-size: 12px; color: var(--text-soft); margin-top: 2px;">{{ order.client_phone }}</div>
+                  {% elif order.client_phone and hide_phone %}
+                    <div style="font-size: 12px; color: var(--text-soft); opacity: 0.5; margin-top: 2px;">🔒 Скрыт</div>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.assigned_to %}
+                  {% set master = masters_dict.get(order.assigned_to) %}
+                  {% if master %}
+                    {{ master.full_name or master.name or master.tg_id }}
+                  {% else %}
+                    ID: {{ order.assigned_to }}
+                  {% endif %}
+                {% else %}
+                  <span style="color: var(--text-soft);">Не назначен</span>
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; color: var(--text); font-size: 14px;">
+                {% if order.equip_type %}
+                  {{ get_equip_type_name(order.equip_type) }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 14px 12px; text-align: right; color: var(--text); font-size: 14px; font-weight: 600;">
+                {% if order.sum_amount %}
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span>{{ "%.0f"|format(order.sum_amount) }} ₽</span>
+                    {% if order.debt_amount and order.debt_amount > 0 %}
+                      <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;" title="Долг: {{ '%.0f'|format(order.debt_amount) }} ₽">⚠️</span>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 60px 20px; color: var(--text-soft);">
+      <div style="font-size: 64px; margin-bottom: 16px;">📋</div>
+      <p style="font-size: 16px; margin: 0;">Заявки не найдены</p>
+      <p style="font-size: 14px; margin-top: 8px; opacity: 0.7;">Попробуйте изменить фильтры</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function updateDateInputs(period) {
+  const dateFrom = document.getElementById('date_from');
+  const dateTo = document.getElementById('date_to');
+  
+  if (period === 'current_month') {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    dateFrom.value = firstDay.toISOString().split('T')[0];
+    dateTo.value = today.toISOString().split('T')[0];
+    dateFrom.disabled = true;
+    dateTo.disabled = true;
+  } else if (period === 'all') {
+    dateFrom.value = '';
+    dateTo.value = '';
+    dateFrom.disabled = true;
+    dateTo.disabled = true;
+  } else if (period === 'custom') {
+    dateFrom.disabled = false;
+    dateTo.disabled = false;
+    // Фокусируемся на первом поле для удобства
+    setTimeout(() => dateFrom.focus(), 100);
+  }
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+  const periodSelect = document.getElementById('periodSelect');
+  if (periodSelect) {
+    const currentPeriod = periodSelect.value;
+    updateDateInputs(currentPeriod);
+  }
+});
+
+// Добавляем hover эффекты для карточек заявок
+document.addEventListener('DOMContentLoaded', function() {
+  // Hover эффекты для строк таблицы
+  const orderRows = document.querySelectorAll('.order-row');
+  orderRows.forEach(row => {
+    row.addEventListener('mouseenter', function() {
+      this.style.background = 'rgba(37,99,235,0.05)';
+    });
+    row.addEventListener('mouseleave', function() {
+      this.style.background = '';
+    });
+  });
+  
+  // Улучшенные стили для инпутов при фокусе
+  const inputs = document.querySelectorAll('#filterForm input, #filterForm select');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.style.borderColor = 'var(--accent)';
+      this.style.boxShadow = '0 0 0 3px var(--accent-soft)';
+    });
+    input.addEventListener('blur', function() {
+      this.style.borderColor = '';
+      this.style.boxShadow = '';
+    });
+  });
+});
+</script>
+
+<style>
+  .stat-card {
+    padding: 20px;
+    border-radius: 16px;
+    color: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+  .stat-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    #ordersGrid {
+      grid-template-columns: 1fr !important;
+    }
+    
+    .page-header > div {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+  }
+</style>
+{% endblock %}
+
+

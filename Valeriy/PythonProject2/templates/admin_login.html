@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Вход в админку</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+      background-size: 200% 200%;
+      animation: gradientShift 15s ease infinite;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    body::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: float 20s linear infinite;
+    }
+    
+    @keyframes float {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(-50px, -50px) rotate(360deg); }
+    }
+    
+    .login-container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+      z-index: 1;
+      animation: fadeIn 0.6s ease-out;
+      transition: transform 0.3s ease;
+    }
+    
+    .login-container:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 40px;
+      animation: slideIn 0.5s ease-out 0.1s both;
+    }
+    
+    .login-header .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: inline-block;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .login-header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    
+    .login-header p {
+      color: #64748b;
+      font-size: 15px;
+      font-weight: 400;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+      position: relative;
+      animation: slideIn 0.5s ease-out both;
+    }
+    
+    .form-group:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+    
+    .form-group:nth-child(2) {
+      animation-delay: 0.3s;
+    }
+    
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 10px;
+    }
+    
+    label::before {
+      content: '';
+      width: 4px;
+      height: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+    }
+    
+    .input-wrapper {
+      position: relative;
+    }
+    
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+      font-size: 18px;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+    
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 14px 16px 14px 48px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 15px;
+      transition: all 0.3s ease;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1), 0 4px 12px rgba(102, 126, 234, 0.15);
+      transform: translateY(-1px);
+    }
+    
+    input[type="text"]:focus + .input-icon,
+    input[type="password"]:focus ~ .toggle-password {
+      color: #667eea;
+    }
+    
+    .toggle-password {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px;
+      transition: color 0.2s;
+      z-index: 2;
+    }
+    
+    .toggle-password:hover {
+      color: #667eea;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      margin-top: 8px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      animation: slideIn 0.5s ease-out 0.4s both;
+    }
+    
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+    
+    .btn:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn span {
+      position: relative;
+      z-index: 1;
+    }
+    
+    .error {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      color: #dc2626;
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid #fecaca;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.4s ease-out;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);
+    }
+    
+    .error::before {
+      content: '⚠️';
+      font-size: 18px;
+    }
+    
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 32px 24px;
+        border-radius: 20px;
+      }
+      
+      .login-header h1 {
+        font-size: 26px;
+      }
+      
+      .login-header .icon {
+        font-size: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="icon">🔐</div>
+      <h1>Вход в админку</h1>
+      <p>Введите логин и пароль для доступа</p>
+    </div>
+    
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <form method="post" action="/login" id="loginForm">
+      <div class="form-group">
+        <label for="username">Логин</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input type="text" id="username" name="username" placeholder="Введите логин" autofocus required>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Пароль</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" name="password" placeholder="Введите пароль" required>
+          <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn">
+        <span>Войти</span>
+      </button>
+    </form>
+  </div>
+  
+  <script>
+    function togglePassword() {
+      const passwordInput = document.getElementById('password');
+      const toggleBtn = document.querySelector('.toggle-password');
+      
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        passwordInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+      }
+    }
+    
+    // Добавляем эффект при фокусе
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('focus', function() {
+        this.parentElement.style.transform = 'scale(1.01)';
+      });
+      
+      input.addEventListener('blur', function() {
+        this.parentElement.style.transform = 'scale(1)';
+      });
+    });
+    
+    // Анимация при отправке формы
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      const btn = document.querySelector('.btn');
+      btn.style.transform = 'scale(0.98)';
+      setTimeout(() => {
+        btn.style.transform = '';
+      }, 150);
+    });
+  </script>
+</body>
+</html>
+

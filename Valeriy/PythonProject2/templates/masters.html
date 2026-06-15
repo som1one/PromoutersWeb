@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h1 class="page-title">👥 Команда</h1>
+      <p class="page-subtitle">Управление мастерами, директорами и диспетчерами</p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="/" class="btn" style="background: var(--bg-soft); color: var(--text); text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid var(--border-subtle);">
+        ← Назад
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Форма создания нового мастера -->
+<div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(37,99,235,0.1) 0%, rgba(37,99,235,0.05) 100%); border: 1px solid rgba(37,99,235,0.2);">
+  <div class="card-header">
+    <h2 class="card-title">➕ Добавить нового мастера</h2>
+    <p class="card-desc">Создайте нового мастера в системе</p>
+  </div>
+  <form method="post" action="/masters/create" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; align-items: end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">VK ID *</label>
+      <input type="number" name="tg_id" placeholder="VK ID мастера" required style="width: 100%; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.2s;">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">ФИО</label>
+      <input type="text" name="full_name" placeholder="Полное имя" style="width: 100%; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.2s;">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Телефон</label>
+      <input type="tel" name="phone" placeholder="+7 (999) 123-45-67" style="width: 100%; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.2s;">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label class="form-label">Город</label>
+      <select name="city_id" style="width: 100%; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; cursor: pointer;">
+        <option value="">— Без города —</option>
+        {% for city in cities %}
+          <option value="{{ city.id }}">{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn" style="height: fit-content; padding: 12px 24px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border: none; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">
+      ➕ Добавить
+    </button>
+  </form>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 24px;">
+  <!-- Настройка процентов -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">⚙️ Настройка процентов</h2>
+      <p class="card-desc">Установите индивидуальный процент для мастера</p>
+    </div>
+    <form method="post" style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-soft); font-weight: 500;">
+          Выберите мастера:
+        </label>
+        {% if masters %}
+        <select name="master_id" id="master_select" required style="width: 100%; padding: 12px; background: var(--bg-soft); border: 2px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; cursor: pointer; transition: all 0.2s;">
+          <option value="" disabled selected>-- Выберите мастера --</option>
+          {% for u in masters %}
+            <option value="{{ u.tg_id }}">
+            {% if u.full_name %}{{ u.full_name }}{% elif u.name %}{{ u.name }}{% else %}{{ u.tg_id }}{% endif %} 
+            ({% if u.city_rel %}{{ u.city_rel.name }}{% else %}Без города{% endif %})
+          </option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <div style="padding: 16px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-soft); font-size: 14px; text-align: center;">
+          ⚠️ В системе пока нет мастеров
+        </div>
+        {% endif %}
+      </div>
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-soft); font-weight: 500;">
+          Процент мастера (%):
+        </label>
+        <input type="number"
+               step="0.1"
+               min="0"
+               max="100"
+               name="percentage"
+               placeholder="0.0 - 100.0 (0 = сбросить)"
+               style="width: 100%; padding: 12px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.2s;">
+        <p style="margin-top: 8px; font-size: 12px; color: var(--text-soft); line-height: 1.5;">
+          💡 Оставьте пустым или введите 0, чтобы сбросить индивидуальный процент
+        </p>
+      </div>
+      <div style="display: flex; gap: 12px; flex-direction: column;">
+        <button type="submit" name="action" value="set_one" class="btn" style="width: 100%; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);" {% if not masters %}disabled title="Нет мастеров в системе"{% endif %}>
+          ✅ Установить для выбранного
+        </button>
+        <button type="button" onclick="showConfirmModal('setAllModal')" class="btn" style="width: 100%; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);" {% if not masters %}disabled title="Нет мастеров в системе"{% endif %}>
+          🌐 Установить для всех
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Статистика команды -->
+  <div class="card" style="background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.05) 100%); border: 1px solid rgba(34,197,94,0.2);">
+    <div class="card-header">
+      <h2 class="card-title">📊 Статистика команды</h2>
+      <p class="card-desc">Общая информация о команде</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+      <div style="padding: 20px; background: rgba(37,99,235,0.1); border-radius: 12px; border: 1px solid rgba(37,99,235,0.2); text-align: center;">
+        <div style="font-size: 36px; font-weight: 700; color: #60a5fa; margin-bottom: 8px;">{{ masters|length }}</div>
+        <div style="font-size: 13px; color: var(--text-soft); font-weight: 500;">Мастеров</div>
+      </div>
+      <div style="padding: 20px; background: rgba(139,92,246,0.1); border-radius: 12px; border: 1px solid rgba(139,92,246,0.2); text-align: center;">
+        <div style="font-size: 36px; font-weight: 700; color: #a78bfa; margin-bottom: 8px;">{{ directors|length }}</div>
+        <div style="font-size: 13px; color: var(--text-soft); font-weight: 500;">Директоров</div>
+      </div>
+      <div style="padding: 20px; background: rgba(245,158,11,0.1); border-radius: 12px; border: 1px solid rgba(245,158,11,0.2); text-align: center;">
+        <div style="font-size: 36px; font-weight: 700; color: #fbbf24; margin-bottom: 8px;">{{ dispatchers|length }}</div>
+        <div style="font-size: 13px; color: var(--text-soft); font-weight: 500;">Диспетчеров</div>
+      </div>
+      <div style="padding: 20px; background: rgba(16,185,129,0.1); border-radius: 12px; border: 1px solid rgba(16,185,129,0.2); text-align: center;">
+        <div style="font-size: 36px; font-weight: 700; color: #34d399; margin-bottom: 8px;">{{ masters|selectattr('master_percentage')|list|length }}</div>
+        <div style="font-size: 13px; color: var(--text-soft); font-weight: 500;">С индивидуальным %</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Список мастеров в виде карточек -->
+<div class="card">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h2 class="card-title">👨‍🔧 Мастера</h2>
+      <p class="card-desc">Список всех мастеров с их индивидуальными процентами</p>
+    </div>
+    <div style="position: relative; min-width: 300px; flex: 1; max-width: 400px;">
+      <input type="text" 
+             id="masterSearch" 
+             placeholder="🔍 Поиск по имени, VK ID или городу..." 
+             style="width: 100%; padding: 12px 16px 12px 44px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text); font-size: 14px; transition: all 0.2s;">
+      <div style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-soft); font-size: 18px;">🔍</div>
+    </div>
+  </div>
+  
+  {% if masters %}
+    <div id="mastersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px;">
+      {% for u in masters %}
+        <div class="master-card" style="padding: 20px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 12px; transition: all 0.3s ease; cursor: pointer;" data-master-name="{{ (u.full_name or u.name or '')|lower }}" data-master-id="{{ u.tg_id }}" data-master-city="{{ (u.city_rel.name if u.city_rel else '')|lower }}">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
+            <div style="flex: 1;">
+              <a href="/master/{{ u.tg_id }}" style="text-decoration: none; color: inherit;">
+                <div style="font-size: 18px; font-weight: 600; margin-bottom: 4px; color: var(--text);">
+                  {% if u.full_name %}{{ u.full_name }}{% elif u.name %}{{ u.name }}{% else %}ID {{ u.tg_id }}{% endif %}
+                </div>
+              </a>
+              <div style="font-size: 12px; color: var(--text-soft); margin-bottom: 8px;">
+                VK ID: {{ u.tg_id }}
+              </div>
+            </div>
+            <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
+              👨‍🔧
+            </div>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            {% if u.city_rel %}
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-soft);">
+              <span>🏙</span>
+              <span>{{ u.city_rel.name }}</span>
+            </div>
+            {% endif %}
+            
+            {% if u.phone %}
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-soft);">
+              <span>📞</span>
+              <a href="tel:{{ u.phone }}" style="color: var(--accent); text-decoration: none;">{{ u.phone }}</a>
+            </div>
+            {% endif %}
+            
+            {% if u.master_percentage is not none %}
+            <div style="padding: 12px; background: rgba(37,99,235,0.1); border-radius: 8px; border: 1px solid rgba(37,99,235,0.2);">
+              <div style="font-size: 11px; color: var(--text-soft); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Индивидуальный процент</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--accent);">
+            {% else %}
+            <div style="padding: 12px; background: rgba(148,163,184,0.1); border-radius: 8px; border: 1px solid rgba(148,163,184,0.2);">
+              <div style="font-size: 11px; color: var(--text-soft); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">Индивидуальный процент</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--text-soft);">
+            {% endif %}
+                {% if u.master_percentage is not none %}
+                  {{ "%.1f"|format(u.master_percentage) }}%
+                {% else %}
+                  <span style="font-size: 14px;">по сетке</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 60px 20px; color: var(--text-soft);">
+      <div style="font-size: 64px; margin-bottom: 16px;">👨‍🔧</div>
+      <p style="font-size: 16px; margin: 0;">Пока нет мастеров в системе</p>
+      <p style="font-size: 14px; margin-top: 8px; opacity: 0.7;">Добавьте первого мастера выше</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Директора и диспетчеры -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-top: 24px;">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">👔 Директора</h2>
+      <p class="card-desc">Только просмотр</p>
+    </div>
+    {% if directors %}
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        {% for u in directors %}
+          <div style="padding: 16px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 10px; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+              👔
+            </div>
+            <div style="flex: 1;">
+              <div style="font-weight: 500; margin-bottom: 4px;">{{ u.full_name or u.name or ("ID " + u.tg_id|string) }}</div>
+              <div style="font-size: 12px; color: var(--text-soft);">
+                {% if u.city_rel %}{{ u.city_rel.name }}{% else %}Без города{% endif %}
+                {% if u.phone %} • {{ u.phone }}{% endif %}
+              </div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-soft);">ID: {{ u.tg_id }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 40px; color: var(--text-soft);">
+        <div style="font-size: 48px; margin-bottom: 12px;">👔</div>
+        <p>Нет директоров</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📞 Диспетчеры</h2>
+      <p class="card-desc">Только просмотр</p>
+    </div>
+    {% if dispatchers %}
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        {% for u in dispatchers %}
+          <div style="padding: 16px; background: var(--bg-soft); border: 1px solid var(--border-subtle); border-radius: 10px; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+              📞
+            </div>
+            <div style="flex: 1;">
+              <div style="font-weight: 500; margin-bottom: 4px;">{{ u.full_name or u.name or ("ID " + u.tg_id|string) }}</div>
+              <div style="font-size: 12px; color: var(--text-soft);">
+                {% if u.city_rel %}{{ u.city_rel.name }}{% else %}Без города{% endif %}
+                {% if u.phone %} • {{ u.phone }}{% endif %}
+              </div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-soft);">ID: {{ u.tg_id }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 40px; color: var(--text-soft);">
+        <div style="font-size: 48px; margin-bottom: 12px;">📞</div>
+        <p>Нет диспетчеров</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Модальное окно подтверждения массовой операции -->
+<div class="modal-overlay" id="setAllModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">⚠️ Подтверждение</h3>
+      <button class="modal-close" onclick="hideModal('setAllModal')">×</button>
+    </div>
+    <div>
+      <p>Вы уверены, что хотите установить этот процент для <strong>всех мастеров</strong>?</p>
+      <p style="color: var(--text-soft); font-size: 13px; margin-top: 8px;">
+        Это действие затронет всех мастеров в системе и перезапишет их индивидуальные проценты.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="hideModal('setAllModal')" style="background: var(--bg-soft); color: var(--text);">Отмена</button>
+      <form method="post" style="display: inline;">
+        <input type="hidden" name="master_id" value="">
+        <input type="hidden" name="percentage" id="modalPercentage" value="">
+        <button type="submit" name="action" value="set_all" class="btn btn-primary">Подтвердить</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Поиск по мастерам с улучшенной логикой
+  const searchInput = document.getElementById('masterSearch');
+  const mastersGrid = document.getElementById('mastersGrid');
+  
+  if (searchInput && mastersGrid) {
+    searchInput.addEventListener('input', function(e) {
+      const searchTerm = e.target.value.toLowerCase().trim();
+      const cards = mastersGrid.querySelectorAll('.master-card');
+      let visibleCount = 0;
+      
+      cards.forEach(card => {
+        const name = card.getAttribute('data-master-name') || '';
+        const id = card.getAttribute('data-master-id') || '';
+        const city = card.getAttribute('data-master-city') || '';
+        
+        const matches = !searchTerm || 
+          name.includes(searchTerm) || 
+          id.includes(searchTerm) || 
+          city.includes(searchTerm);
+        
+        if (matches) {
+          card.style.display = '';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+      
+      // Показываем сообщение, если ничего не найдено
+      let noResultsMsg = mastersGrid.querySelector('.no-results');
+      if (visibleCount === 0 && searchTerm) {
+        if (!noResultsMsg) {
+          noResultsMsg = document.createElement('div');
+          noResultsMsg.className = 'no-results';
+          noResultsMsg.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-soft);';
+          noResultsMsg.innerHTML = '<div style="font-size: 48px; margin-bottom: 16px;">🔍</div><p style="font-size: 16px; margin: 0;">Ничего не найдено</p>';
+          mastersGrid.appendChild(noResultsMsg);
+        }
+      } else if (noResultsMsg) {
+        noResultsMsg.remove();
+      }
+    });
+    
+    // Добавляем hover эффекты для карточек
+    const cards = mastersGrid.querySelectorAll('.master-card');
+    cards.forEach(card => {
+      card.addEventListener('mouseenter', function() {
+        this.style.transform = 'translateY(-4px)';
+        this.style.boxShadow = '0 8px 24px rgba(37,99,235,0.2)';
+        this.style.borderColor = 'rgba(37,99,235,0.4)';
+      });
+      card.addEventListener('mouseleave', function() {
+        this.style.transform = '';
+        this.style.boxShadow = '';
+        this.style.borderColor = '';
+      });
+    });
+  }
+  
+  function showConfirmModal(modalId) {
+    const percentage = document.querySelector('input[name="percentage"]').value;
+    if (!percentage || parseFloat(percentage) <= 0) {
+      showToast('Введите процент перед подтверждением', 'error');
+      return;
+    }
+    document.getElementById('modalPercentage').value = percentage;
+    showModal(modalId);
+  }
+  
+  // Валидация формы при отправке
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[method="post"]');
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        const action = e.submitter?.value || e.submitter?.getAttribute('value');
+        if (action === 'set_one') {
+          const masterSelect = document.getElementById('master_select');
+          if (masterSelect && !masterSelect.value) {
+            e.preventDefault();
+            showToast('Пожалуйста, выберите мастера', 'error');
+            masterSelect.focus();
+            masterSelect.style.borderColor = 'var(--danger)';
+            setTimeout(() => {
+              masterSelect.style.borderColor = '';
+            }, 2000);
+            return false;
+          }
+        }
+      });
+    }
+    
+    // Улучшенные стили для инпутов при фокусе
+    const inputs = document.querySelectorAll('input, select');
+    inputs.forEach(input => {
+      input.addEventListener('focus', function() {
+        this.style.borderColor = 'var(--accent)';
+        this.style.boxShadow = '0 0 0 3px var(--accent-soft)';
+      });
+      input.addEventListener('blur', function() {
+        this.style.borderColor = '';
+        this.style.boxShadow = '';
+      });
+    });
+  });
+</script>
+
+<style>
+  @media (max-width: 768px) {
+    #mastersGrid {
+      grid-template-columns: 1fr !important;
+    }
+    
+    .page-header > div {
+      flex-direction: column;
+      align-items: flex-start !important;
+    }
+  }
+</style>
+{% endblock %}

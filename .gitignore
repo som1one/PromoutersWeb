@@ -34,8 +34,13 @@ node_modules/
 *.tar.gz
 *.zip
 
-# Legacy code is kept locally only, outside the active project
-Valeriy/
+# Legacy code (VK bot kept, Telegram bot deployed)
+# Valeriy/
+Valeriy/PythonProject2/local.env
+Valeriy/PythonProject2/debug.log
+Valeriy/PythonProject2/data/
+Valeriy/PythonProject2/__pycache__/
+Valeriy/PythonProject2/*.xlsx
 
 # Deploy scripts contain hardcoded production secrets â€” keep local only
 scripts/deploy_full.py
@@ -47,6 +52,6 @@ scripts/optimize_server.py
 # Local CLI configuration
 .claude/
 
-# Local diagnostic helpers (never commit — may contain server connection details)
+# Local diagnostic helpers (never commit ï¿½ may contain server connection details)
 scripts/_*.py
 

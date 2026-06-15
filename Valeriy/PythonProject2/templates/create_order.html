@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">➕ Создать заявку</h1>
+  <p class="page-subtitle">Заполните форму для создания новой заявки</p>
+</div>
+
+{% if error %}
+  <div class="error-message">
+    ⚠️ {{ error }}
+  </div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="/create-order">
+    <div class="form-group">
+      <label class="form-label">🏙 Город *</label>
+      <select name="city_id" required>
+        <option value="">— Выберите город —</option>
+        {% for city in cities %}
+          <option value="{{ city.id }}" {% if initial and (initial.city_id|string) == (city.id|string) %}selected{% endif %}>{{ city.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">📍 Улица *</label>
+        <input type="text" name="street" placeholder="Название улицы" required value="{{ initial.street if initial else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🏠 Дом *</label>
+        <input type="text" name="house" placeholder="Номер дома" required value="{{ initial.house if initial else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <label class="form-label" style="margin: 0; flex: 1;">🚪 Квартира <span id="flat_required" style="color: var(--accent);">*</span></label>
+        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; color: var(--text);">
+          <input type="checkbox" name="is_private_house" id="is_private_house" style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleFlatField()" {% if initial and initial.is_private_house %}checked{% endif %}>
+          <span>🏡 ЧД (частный дом)</span>
+        </label>
+      </div>
+      <input type="text" name="flat" id="flat_input" placeholder="Номер квартиры" value="{{ initial.flat if initial else '' }}" {% if not (initial and initial.is_private_house) %}required{% endif %}>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">🕐 Время с *</label>
+        <input type="time" name="time_from" required value="{{ initial.time_from if initial else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">🕐 Время до *</label>
+        <input type="time" name="time_to" required value="{{ initial.time_to if initial else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">📅 Дата выполнения (опционально)</label>
+      <input type="date" name="order_date" id="order_date" value="{{ initial.order_date if initial else '' }}">
+    </div>
+    
+    <div class="form-group">
+      <label style="display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" name="is_warranty" {% if initial and initial.is_warranty %}checked{% endif %}>
+        <span>🛡 Гарантия (не учитывать в статистике)</span>
+      </label>
+      <p style="font-size: 12px; color: var(--text-soft); margin-top: 6px;">
+        Отмечайте для гарантийных выездов — такие заявки не попадут в общую статистику.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">🔧 Тип техники *</label>
+      <select name="equip_type" required>
+        <option value="">— Выберите тип —</option>
+        {% for name, code in equip_types %}
+          <option value="{{ code }}" {% if initial and initial.equip_type == code %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">📝 Краткое описание *</label>
+      <textarea name="short_desc" rows="3" placeholder="Опишите проблему или задачу" required>{{ initial.short_desc if initial else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">👤 Имя клиента *</label>
+        <input type="text" name="client_name" placeholder="ФИО клиента" required value="{{ initial.client_name if initial else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">📞 Телефон клиента *</label>
+        <input type="tel" name="client_phone" placeholder="+7 (999) 123-45-67" required value="{{ initial.client_phone if initial else '' }}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">📞 Источник *</label>
+      <input type="text" name="source" placeholder="Яндекс/сайт/имя" required value="{{ initial.source if initial else '' }}">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">💬 Комментарий</label>
+      <textarea name="comment" rows="2" placeholder="Дополнительная информация">{{ initial.comment if initial else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">👤 Назначить мастера/директора (опционально)</label>
+      <select name="assigned_to">
+        <option value="">— Автоматически (директор города) —</option>
+        <option value="-" {% if initial and initial.assigned_to == '-' %}selected{% endif %}>— Не назначать —</option>
+        <optgroup label="Директора">
+          {% for director in directors %}
+            <option value="{{ director.tg_id }}" {% if initial and (initial.assigned_to|string) == (director.tg_id|string) %}selected{% endif %}>
+              {{ director.full_name or director.name or director.tg_id }} ({{ director.city_rel.name if director.city_rel else "—" }})
+            </option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="Мастера">
+          {% for master in masters %}
+            <option value="{{ master.tg_id }}" {% if initial and (initial.assigned_to|string) == (master.tg_id|string) %}selected{% endif %}>
+              {{ master.full_name or master.name or master.tg_id }} ({{ master.city_rel.name if master.city_rel else "—" }})
+            </option>
+          {% endfor %}
+        </optgroup>
+      </select>
+      <p style="font-size: 12px; color: var(--text-soft); margin-top: 6px;">
+        Если не указано, заявка будет автоматически назначена директору выбранного города
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 24px;">
+      <button type="submit" class="btn">
+        ✅ Создать заявку
+      </button>
+      <a href="/orders" class="btn btn-secondary">
+        ← К списку заявок
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Устанавливаем минимальную дату на сегодня
+  const today = new Date().toISOString().split('T')[0];
+  const dateInput = document.querySelector('input[name="order_date"]');
+  if (dateInput) { dateInput.setAttribute('min', today); }
+  
+  // Функция для переключения поля квартиры при выборе "ЧД"
+  function toggleFlatField() {
+    const checkbox = document.getElementById('is_private_house');
+    const flatInput = document.getElementById('flat_input');
+    const flatRequired = document.getElementById('flat_required');
+    
+    if (checkbox.checked) {
+      flatInput.value = '';
+      flatInput.placeholder = 'Частный дом';
+      flatInput.required = false;
+      flatInput.disabled = true;
+      flatInput.style.background = '#f1f5f9';
+      flatInput.style.cursor = 'not-allowed';
+      if (flatRequired) flatRequired.style.display = 'none';
+    } else {
+      flatInput.placeholder = 'Номер квартиры';
+      flatInput.required = true;
+      flatInput.disabled = false;
+      flatInput.style.background = '';
+      flatInput.style.cursor = '';
+      if (flatRequired) flatRequired.style.display = 'inline';
+    }
+  }
+  
+  // Инициализация при загрузке страницы
+  document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('is_private_house');
+    if (checkbox && checkbox.checked) {
+      toggleFlatField(); // Применяем состояние при загрузке, если чекбокс отмечен
+    }
+  });
+</script>
+{% endblock %}
+
+

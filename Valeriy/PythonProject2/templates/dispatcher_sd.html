@@ -1,0 +1,85 @@
+{% extends "dispatcher_base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📦 СД (техника на руках у мастеров)</h1>
+  <p class="page-subtitle">Просмотр незакрытых СД</p>
+</div>
+
+{% if masters_dict %}
+  {% for master_id, data in masters_dict.items() %}
+    {% set master = data.master %}
+    {% set orders = data.orders %}
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">
+        👤 {{ master.full_name or master.name or master.tg_id if master else master_id }} — {{ orders|length }} заявок
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Город</th>
+            <th>Адрес</th>
+            <th>Тип техники</th>
+            <th>Статус</th>
+            <th>Дата</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td><strong>#{{ order.order_number }}</strong></td>
+              <td>{{ order.city_rel.name if order.city_rel else "—" }}</td>
+              <td>
+                {% if order.street %}
+                  {{ order.street }}{% if order.house %}, д. {{ order.house }}{% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{{ get_equip_type_name(order.equip_type) if order.equip_type else "—" }}</td>
+              <td>
+                {% if order.status == "completed" %}
+                  <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(34,197,94,0.15); color: #22c55e; font-weight: 500;">
+                    ✅ {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "accepted" %}
+                  <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,0.15); color: #3b82f6; font-weight: 500;">
+                    ✅ {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "on_place" %}
+                  <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(59,130,246,0.15); color: #3b82f6; font-weight: 500;">
+                    🚗 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% elif order.status == "to_sd" %}
+                  <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: rgba(251,191,36,0.15); color: #fbbf24; font-weight: 500;">
+                    🔧 {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% else %}
+                  <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 500;">
+                    {{ get_status_name_ru(order.status) }}
+                  </span>
+                {% endif %}
+              </td>
+              <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else "—" }}</td>
+              <td>
+                <a href="/order/{{ order.id }}" class="btn" style="padding: 6px 12px; font-size: 12px;">Открыть</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <div style="text-align: center; padding: 60px 20px; color: var(--text-soft);">
+      <div style="font-size: 48px; margin-bottom: 16px;">📦</div>
+      <p>У мастеров нет техники на руках</p>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+

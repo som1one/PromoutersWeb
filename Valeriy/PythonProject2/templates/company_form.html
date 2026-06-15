@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: var(--text); margin-bottom: 30px;">Заполнение данных компании</h1>
+    
+    {% if error %}
+    <div style="background: var(--danger); color: white; padding: 15px; border-radius: var(--radius-md); margin-bottom: 20px;">
+        <strong>Ошибка:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    {% if success %}
+    <div style="background: var(--success); color: white; padding: 15px; border-radius: var(--radius-md); margin-bottom: 20px;">
+        {{ success }}
+    </div>
+    {% endif %}
+    
+    <form method="post" enctype="multipart/form-data" style="background: var(--surface); padding: 30px; border-radius: var(--radius-lg);">
+        
+        <!-- Сайт (URL) - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Сайт (URL)
+            </label>
+            <input 
+                type="url" 
+                name="website" 
+                placeholder="https://example.com"
+                value="{{ form_data.website if form_data else '' }}"
+                style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: 14px;"
+            >
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">Необязательное поле</small>
+        </div>
+        
+        <!-- Социальные сети - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Социальные сети
+            </label>
+            <div style="display: flex; gap: 10px;">
+                <input 
+                    type="text" 
+                    name="social_networks" 
+                    placeholder="Введите ссылку на соцсеть"
+                    value="{{ form_data.social_networks if form_data else '' }}"
+                    style="flex: 1; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: 14px;"
+                >
+                <button 
+                    type="button" 
+                    onclick="addSocialNetwork()"
+                    style="width: 50px; height: 50px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--accent); color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+                >
+                    +
+                </button>
+            </div>
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">Необязательное поле. Можно указать несколько через запятую</small>
+        </div>
+        
+        <!-- Категории - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Категории
+            </label>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {% set all_categories = ["Автоуслуги", "Услуги строителя", "Красота", "Бытовые услуги", "Финансовые услуги", "Парфюм", "Автотовары"] %}
+                {% for category in all_categories %}
+                <label style="display: flex; align-items: center; padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); cursor: pointer; user-select: none;">
+                    <input 
+                        type="checkbox" 
+                        name="categories" 
+                        value="{{ category }}"
+                        {% if form_data and category in form_data.categories %}checked{% endif %}
+                        style="margin-right: 8px;"
+                    >
+                    {{ category }}
+                </label>
+                {% endfor %}
+            </div>
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">Необязательное поле. Можно выбрать несколько</small>
+        </div>
+        
+        <!-- Фотографии - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Фотографии (максимум 6)
+            </label>
+            <input 
+                type="file" 
+                name="photos" 
+                multiple 
+                accept="image/*"
+                style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: 14px;"
+                onchange="validatePhotos(this)"
+            >
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">Необязательное поле. Максимум 6 фотографий</small>
+        </div>
+        
+        <!-- Описание компании - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Описание компании
+            </label>
+            <textarea 
+                name="description" 
+                rows="4" 
+                placeholder="Опишите вашу компанию"
+                style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: 14px; resize: vertical;"
+            >{{ form_data.description if form_data else '' }}</textarea>
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">Необязательное поле</small>
+        </div>
+        
+        <!-- Доступна предоплата - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: flex; align-items: center; color: var(--text); cursor: pointer; user-select: none;">
+                <input 
+                    type="checkbox" 
+                    name="prepayment_available"
+                    {% if form_data and form_data.prepayment_available %}checked{% endif %}
+                    style="width: 18px; height: 18px; margin-right: 10px; cursor: pointer;"
+                >
+                Доступна предоплата
+            </label>
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block; margin-left: 28px;">Необязательное поле</small>
+        </div>
+        
+        <!-- Номер телефона - необязательное поле -->
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; color: var(--text); margin-bottom: 8px; font-weight: 500;">
+                Номер телефона
+            </label>
+            <input 
+                type="tel" 
+                name="phone_number" 
+                placeholder="+375652345667 или 89161234567"
+                value="{{ form_data.phone_number if form_data else '' }}"
+                style="width: 100%; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font-size: 14px;"
+            >
+            <small style="color: var(--text-soft); font-size: 12px; margin-top: 5px; display: block;">
+                Необязательное поле. Формат: +XXXXXXXXXX (международный) или 8XXXXXXXXXX/7XXXXXXXXXX (российский)
+            </small>
+        </div>
+        
+        <!-- Кнопка отправки -->
+        <button 
+            type="submit" 
+            style="width: 100%; padding: 15px; background: var(--accent); color: white; border: none; border-radius: var(--radius-md); font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s;"
+            onmouseover="this.style.background='var(--accent-border)'"
+            onmouseout="this.style.background='var(--accent)'"
+        >
+            Сохранить и продолжить
+        </button>
+    </form>
+</div>
+
+<script>
+function validatePhotos(input) {
+    if (input.files.length > 6) {
+        alert('Максимум 6 фотографий!');
+        input.value = '';
+    }
+}
+
+function addSocialNetwork() {
+    // Логика добавления дополнительного поля для соцсети
+    // Можно реализовать динамическое добавление полей
+    alert('Функция добавления дополнительных соцсетей будет реализована');
+}
+</script>
+{% endblock %}
