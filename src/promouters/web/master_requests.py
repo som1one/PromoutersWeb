@@ -57,6 +57,7 @@ async def requests_list(
         except ValueError:
             pass
     requests = list(db.scalars(stmt))
+    can_close = role in ("owner", "branch_manager", "dispatcher")
     return render(
         request,
         "master_requests_list.html",
@@ -65,6 +66,7 @@ async def requests_list(
         requests=requests,
         status_filter=status_filter,
         statuses=list(MasterRequestStatus),
+        can_close=can_close,
     )
 
 
@@ -175,3 +177,96 @@ async def request_upload_bso(
     except Exception:  # noqa: BLE001
         logger.exception("master_request.upload_bso failed")
     return RedirectResponse(f"/admin/master-requests/{request_id}", status_code=302)
+
+
+CLOSE_ROLES = ("owner", "branch_manager", "dispatcher")
+
+
+@router.get("/{request_id}/close")
+async def request_close_form(
+    request: Request,
+    request_id: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(require_roles(*CLOSE_ROLES)),
+):
+    try:
+        target_id = UUID(request_id)
+    except ValueError:
+        return render(request, "404.html", user=user, status_code=404, what="Заявка")
+    try:
+        mr = svc.get_master_request_for_actor(db, user, target_id)
+    except Exception:  # noqa: BLE001
+        return render(request, "404.html", user=user, status_code=404, what="Заявка")
+    return render(
+        request,
+        "master_request_close.html",
+        user=user,
+        active_page="master_requests",
+        request_obj=mr,
+    )
+
+
+@router.post("/{request_id}/close")
+async def request_close_submit(
+    request: Request,
+    request_id: str,
+    sum_amount: str | None = Form(None),
+    sd_price: str | None = Form(None),
+    zpch_sum: str | None = Form(None),
+    comment: str = Form(default=""),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(require_roles(*CLOSE_ROLES)),
+):
+    from decimal import Decimal
+
+    target_id = UUID(request_id)
+    mr = svc.get_master_request_for_actor(db, user, target_id)
+
+    # Parse amounts
+    def _parse_decimal(val: str | None) -> Decimal | None:
+        if not val or not val.strip():
+            return None
+        try:
+            return Decimal(val.strip())
+        except Exception:
+            return None
+
+    final_amount = _parse_decimal(sum_amount)
+    sd = _parse_decimal(sd_price)
+    zpch = _parse_decimal(zpch_sum)
+
+    # Update financial fields
+    if final_amount is not None:
+        mr.final_amount = final_amount
+    if sd is not None or zpch is not None:
+        note_parts = []
+        if sd is not None:
+            note_parts.append(f"СД: {sd}")
+        if zpch is not None:
+            note_parts.append(f"Запчасти: {zpch}")
+        extra_note = "; ".join(note_parts)
+    else:
+        extra_note = ""
+
+    # Change status to handed_over (closed)
+    close_note = comment.strip() if comment.strip() else "Заявка закрыта"
+    if extra_note:
+        close_note = f"{close_note} ({extra_note})"
+
+    try:
+        status_change = MasterRequestStatusChange(
+            status=MasterRequestStatus.HANDED_OVER,
+            note=close_note,
+        )
+        svc.change_master_request_status(
+            db, user, mr, status_change, settings, request=request
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("master_request.close failed")
+        return RedirectResponse(
+            f"/admin/master-requests/{request_id}?error={getattr(exc, 'detail', 'close_failed')}",
+            status_code=302,
+        )
+    return RedirectResponse("/admin/cash", status_code=302)

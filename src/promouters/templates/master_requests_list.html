@@ -47,7 +47,14 @@
           <td data-label="Заявитель">{{ r.requester.first_name ~ ' ' ~ r.requester.last_name if r.requester else '—' }}</td>
           <td data-label="Мастер">{{ r.assignee.first_name ~ ' ' ~ r.assignee.last_name if r.assignee else '—' }}</td>
           <td data-label="Статус"><span class="badge {% if r.status.value in ['completed','handed_over'] %}badge-success{% elif r.status.value == 'cancelled' %}badge-danger{% elif r.status.value in ['on_the_way','in_progress'] %}badge-info{% else %}badge-warning{% endif %}">{{ status_label(r.status) }}</span></td>
-          <td data-label=""><a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
+          <td data-label="">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <a href="/admin/master-requests/{{ r.id }}" class="btn btn-sm btn-secondary">Открыть</a>
+              {% if can_close and r.status.value not in ['handed_over','cancelled'] %}
+              <a href="/admin/master-requests/{{ r.id }}/close" class="btn btn-sm btn-danger">Закрыть</a>
+              {% endif %}
+            </div>
+          </td>
         </tr>
       {% else %}
         <tr><td colspan="6" class="empty-state">Заявок нет</td></tr>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block page_title %}Закрыть заявку — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Закрыть заявку</h1>
+    <p class="page-subtitle">{{ request_obj.title or '' }} · {{ request_obj.address or '—' }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/master-requests/{{ request_obj.id }}" class="btn btn-ghost">← Назад</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Информация о заявке</h3>
+  </div>
+  <div class="form-row">
+    <div class="col"><span class="muted">Клиент</span><span>{{ request_obj.client_name or '—' }}</span></div>
+    <div class="col"><span class="muted">Телефон</span><span>{{ request_obj.client_phone or '—' }}</span></div>
+    <div class="col"><span class="muted">Мастер</span><span>{{ request_obj.assignee.first_name ~ ' ' ~ request_obj.assignee.last_name if request_obj.assignee else '—' }}</span></div>
+    <div class="col"><span class="muted">Ожидаемая сумма</span><span>{{ request_obj.estimated_amount or 0 }} {{ request_obj.currency or 'RUB' }}</span></div>
+  </div>
+</div>
+
+<form method="post" action="/admin/master-requests/{{ request_obj.id }}/close" class="card">
+  <div class="card-header">
+    <h3 class="card-title">Закрытие заявки</h3>
+    <p class="card-desc">Укажите итоговые суммы. После закрытия заявка будет переведена в статус «Сдано» и вы будете перенаправлены в кассу.</p>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Сумма (₽)</label>
+      <input type="number" step="0.01" name="sum_amount" value="{{ request_obj.final_amount or request_obj.estimated_amount or '' }}" placeholder="Итоговая сумма">
+    </div>
+    <div class="form-group">
+      <label class="form-label">СД (₽)</label>
+      <input type="number" step="0.01" name="sd_price" value="" placeholder="Стоимость СД">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Запчасти (₽)</label>
+      <input type="number" step="0.01" name="zpch_sum" value="" placeholder="Стоимость запчастей">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Комментарий</label>
+    <textarea name="comment" rows="2" placeholder="Например: клиент оплатил наличными"></textarea>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-danger">Закрыть заявку</button>
+    <a href="/admin/master-requests/{{ request_obj.id }}" class="btn btn-ghost">Отмена</a>
+  </div>
+</form>
+{% endblock %}

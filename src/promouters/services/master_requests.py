@@ -50,17 +50,20 @@ from promouters.services.notifications import notify_owners_about_key_change
 
 # Допустимые переходы статусов согласно ТЗ
 ALLOWED_STATUS_TRANSITIONS: dict[MasterRequestStatus, set[MasterRequestStatus]] = {
-    MasterRequestStatus.NEW: {MasterRequestStatus.ACCEPTED, MasterRequestStatus.CANCELLED},
+    MasterRequestStatus.NEW: {MasterRequestStatus.ACCEPTED, MasterRequestStatus.HANDED_OVER, MasterRequestStatus.CANCELLED},
     MasterRequestStatus.ACCEPTED: {
         MasterRequestStatus.ON_THE_WAY,
+        MasterRequestStatus.HANDED_OVER,
         MasterRequestStatus.CANCELLED,
     },
     MasterRequestStatus.ON_THE_WAY: {
         MasterRequestStatus.IN_PROGRESS,
+        MasterRequestStatus.HANDED_OVER,
         MasterRequestStatus.CANCELLED,
     },
     MasterRequestStatus.IN_PROGRESS: {
         MasterRequestStatus.COMPLETED,
+        MasterRequestStatus.HANDED_OVER,
         MasterRequestStatus.CANCELLED,
     },
     MasterRequestStatus.COMPLETED: {MasterRequestStatus.HANDED_OVER},
@@ -238,7 +241,7 @@ def _ensure_can_change_status(actor_user: User, request_obj: MasterRequest) -> N
         if request_obj.assignee_id != actor_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Master is not assigned to this request")
         return
-    if role_code in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR}:
+    if role_code in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR, RoleCode.DISPATCHER}:
         return
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
 
