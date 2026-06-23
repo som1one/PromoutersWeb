@@ -35,7 +35,7 @@ def ensure_user(session, tg_user):
             tg_id=tg_user.id,
             name=tg_user.first_name or "",
             first_name=tg_user.first_name or "",
-            last_name=tg_user.last_name or str(tg_user.id),
+            last_name=getattr(tg_user, 'last_name', None) or str(tg_user.id),
             username=f"vk_{tg_user.id}",
             email=f"vk_{tg_user.id}@placeholder.local",
             password_hash="!nologin",
