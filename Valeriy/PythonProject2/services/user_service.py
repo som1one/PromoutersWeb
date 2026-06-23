@@ -8,14 +8,40 @@ def generate_order_number(session):
         return r.order_number + 1
     return NEXT_ORDER_BASE + 1
 
+
+def _get_role_id(session, role_code: str):
+    """Получить role.id по role.code из таблицы roles."""
+    from sqlalchemy import text
+    result = session.execute(
+        text("SELECT id FROM roles WHERE code = :code LIMIT 1"),
+        {"code": role_code}
+    ).fetchone()
+    return result[0] if result else None
+
+
 def ensure_user(session, tg_user):
     u = session.query(User).filter_by(tg_id=tg_user.id).first()
     if not u:
         # Проверяем, является ли пользователь админом из переменных окружения
         import os
+        import uuid
         admin_ids = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
-        role = "owner" if tg_user.id in admin_ids else "master"
-        u = User(tg_id=tg_user.id, name=tg_user.first_name or "", role=role)
+        role_code = "owner" if tg_user.id in admin_ids else "master"
+        role_id = _get_role_id(session, role_code)
+        if not role_id:
+            raise RuntimeError(f"Роль '{role_code}' не найдена в таблице roles. Запустите seed данных.")
+        u = User(
+            id=str(uuid.uuid4()),
+            tg_id=tg_user.id,
+            name=tg_user.first_name or "",
+            first_name=tg_user.first_name or "",
+            last_name=tg_user.last_name or str(tg_user.id),
+            username=f"vk_{tg_user.id}",
+            email=f"vk_{tg_user.id}@placeholder.local",
+            password_hash="!nologin",
+            role=role_code,
+            role_id=role_id,
+        )
         session.add(u)
         session.commit()
     return u

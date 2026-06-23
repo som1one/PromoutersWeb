@@ -1,31 +1,40 @@
 # models.py
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Boolean, Text
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, Float, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db import Base
+
 
 class City(Base):
     __tablename__ = "cities"
     id = Column(Integer, primary_key=True)
     name = Column(String(100), unique=True, nullable=False)
-    cash_company_percentage = Column(Float, default=50.0)  # процент компании по кассе для города
+    cash_company_percentage = Column(Float, default=50.0)
     timezone = Column(String(100), default="Europe/Moscow")
-    # Связи будут описаны на сторонах User и Order
+
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)  # telegram id
-    tg_id = Column(Integer, unique=True, nullable=False)
-    name = Column(String(200))
-    role = Column(String(50), default="user")  # admin/dispatcher/manager/master/user
-    phone = Column(String(50), nullable=True)  # номер телефона
-    city_id = Column(Integer, ForeignKey("cities.id"), nullable=True)  # теперь как внешний ключ, а не строка
-    full_name = Column(String(200), nullable=True)  # полное ФИО
-    master_percentage = Column(Float, default=None, nullable=True)  # индивидуальный процент мастера
-    passport_photo_path = Column(String(500), nullable=True)  # путь к фото паспорта
-    # Поля для веб-аутентификации
-    username = Column(String(100), unique=True, nullable=True)  # логин для веб-интерфейса
-    password_hash = Column(String(255), nullable=True)  # хеш пароля
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(String, primary_key=True)  # UUID в основной БД
+    tg_id = Column(BigInteger, unique=True, nullable=True)
+    vk_id = Column(String(100), unique=True, nullable=True)
+    username = Column(String(100), unique=True, nullable=True)
+    email = Column(String(255), nullable=True)
+    password_hash = Column(String(255), nullable=True)
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    name = Column(String(200), nullable=True)
+    full_name = Column(String(200), nullable=True)
+    phone = Column(String(50), nullable=True)
+    role = Column(String(50), default="user")  # denormalized from roles.code via trigger
+    role_id = Column(String, nullable=True)  # FK to roles.id (managed by web backend)
+    status = Column(String(50), default="active")
+    is_superuser = Column(Boolean, default=False)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=True)
+    master_percentage = Column(Float, default=None, nullable=True)
+    passport_photo_path = Column(String(500), nullable=True)
     # Связь с городом пользователя
     city_rel = relationship("City")
 
@@ -51,8 +60,8 @@ class Order(Base):
     short_desc = Column(Text)
     source = Column(String(200))
     status = Column(String(50), default="new")  # new, assigned, accepted, on_place, done_pending_sum, done, declined, completed, scheduled
-    created_by = Column(Integer, ForeignKey("users.tg_id"))
-    assigned_to = Column(Integer, ForeignKey("users.tg_id"), nullable=True)
+    created_by = Column(BigInteger, nullable=True)
+    assigned_to = Column(BigInteger, nullable=True)
     client_phone = Column(String(100), nullable=True)
     client_name = Column(String(200), nullable=True)
     comment = Column(Text, nullable=True)
@@ -80,14 +89,14 @@ class Stat(Base):
     equip_type = Column(String(100))
     sum = Column(Float, default=0.0)
     refused = Column(Boolean, default=False)
-    master_tg = Column(Integer, nullable=True)
+    master_tg = Column(BigInteger, nullable=True)
     recorded_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Attendance(Base):
     """Отметки о начале смены мастеров"""
     __tablename__ = "attendance"
     id = Column(Integer, primary_key=True)
-    master_tg_id = Column(Integer, ForeignKey("users.tg_id"), nullable=False)
+    master_tg_id = Column(BigInteger, nullable=False)
     check_in_time = Column(DateTime(timezone=True), server_default=func.now())
     date = Column(DateTime(timezone=True), nullable=False)  # Дата смены (только дата, без времени)
     is_penalty = Column(Boolean, default=False)  # Была ли начислена пеня за опоздание
@@ -97,8 +106,8 @@ class Penalty(Base):
     """Штрафы за опоздание на смену"""
     __tablename__ = "penalties"
     id = Column(Integer, primary_key=True)
-    master_tg_id = Column(Integer, ForeignKey("users.tg_id"), nullable=False)
-    attendance_id = Column(Integer, ForeignKey("attendance.id"), nullable=True)
+    master_tg_id = Column(BigInteger, nullable=False)
+    attendance_id = Column(Integer, nullable=True)
     date = Column(DateTime(timezone=True), nullable=False)  # Дата смены
     amount = Column(Float, default=0.0)  # Сумма штрафа
     reason = Column(String(500), default="Опоздание на смену (отметка не сделана до 9:00)")

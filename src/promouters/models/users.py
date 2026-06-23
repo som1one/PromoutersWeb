@@ -68,6 +68,8 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     master_percentage: Mapped[float | None] = mapped_column(Float, nullable=True)
     passport_photo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Denormalized role code kept in sync with roles.code via DB trigger (migration 0009)
+    role_code_denorm: Mapped[str | None] = mapped_column("role", String(50), nullable=True)
 
     role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False)
     branch_id: Mapped[str | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))

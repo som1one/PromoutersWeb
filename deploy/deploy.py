@@ -297,6 +297,32 @@ WantedBy=multi-user.target
     ssh.run("systemctl daemon-reload")
     ssh.run("systemctl enable suupr-telegram-bot")
 
+    print(f"\n>> [7.6/8] Установка systemd unit-файла suupr-vk-bot")
+    vk_bot_service_content = f"""[Unit]
+Description=Suupr VK Bot
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User={APP_USER}
+Group={APP_USER}
+WorkingDirectory={APP_DIR}/Valeriy/PythonProject2
+Environment=PATH={APP_DIR}/.venv/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile={APP_DIR}/Valeriy/PythonProject2/local.env
+ExecStart={APP_DIR}/.venv/bin/python main.py vk
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+"""
+    ssh.upload_text(vk_bot_service_content, "/etc/systemd/system/suupr-vk-bot.service")
+    ssh.run("systemctl daemon-reload")
+    ssh.run("systemctl enable suupr-vk-bot")
+
     print("\n>> [8/8] Установка nginx-конфигурации")
     nginx_local = Path(__file__).parent / "nginx-suupr.conf"
     if nginx_local.exists():
@@ -399,6 +425,16 @@ echo "HEAD: $(git rev-parse --short HEAD)"
         print(f"  [SKIP] {APP_DIR}/Valeriy/PythonProject2/local.env не найден — бот не запущен")
         print(f"  Создайте файл с TELEGRAM_TOKEN и DATABASE_URL, затем: systemctl start suupr-telegram-bot")
 
+    print("\n>> [6.6/7] Перезапуск VK бота")
+    code, out, _ = ssh.run_quiet(f"grep -q 'VK_BOT_TOKEN' {APP_DIR}/Valeriy/PythonProject2/local.env 2>/dev/null && echo YES || echo NO")
+    if "YES" in out:
+        ssh.run("systemctl restart suupr-vk-bot")
+        time.sleep(3)
+        ssh.run("systemctl is-active suupr-vk-bot", check=False)
+    else:
+        print(f"  [SKIP] VK_BOT_TOKEN не найден в local.env — VK бот не запущен")
+        print(f"  Добавьте VK_BOT_TOKEN и VK_GROUP_ID в local.env, затем: systemctl start suupr-vk-bot")
+
     print("\n>> [7/7] Перезагрузка nginx и smoke-проверки")
     ssh.run(
         f"install -m 644 {APP_DIR}/deploy/nginx-suupr.conf "
@@ -433,6 +469,9 @@ def status(ssh: SSHClient):
     print("\n--- suupr-telegram-bot ---")
     ssh.run("systemctl is-active suupr-telegram-bot || true")
     ssh.run("systemctl status suupr-telegram-bot --no-pager -l | head -15 || true", check=False)
+    print("\n--- suupr-vk-bot ---")
+    ssh.run("systemctl is-active suupr-vk-bot || true")
+    ssh.run("systemctl status suupr-vk-bot --no-pager -l | head -15 || true", check=False)
     print("\n--- nginx ---")
     ssh.run("systemctl is-active nginx || true")
     print("\n--- postgresql ---")

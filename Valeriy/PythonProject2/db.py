@@ -5,7 +5,7 @@ import os
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")\
-    or "postgresql+psycopg2://serviceuser:servicepass@localhost:5432/servicebot"
+    or "postgresql+psycopg2://suupr:suupr_password@localhost:5432/suupr"
 
 
 engine = create_engine(DATABASE_URL, future=True)
