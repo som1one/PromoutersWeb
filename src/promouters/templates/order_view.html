@@ -10,8 +10,27 @@
     <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
     {% if user.role.code in ['owner','director','dispatcher','branch_manager','ad_director'] %}
     <a href="/admin/orders/{{ order.id }}/edit" class="btn">✎ Редактировать</a>
+    {% if order.status != 'declined' %}
+    <a href="/admin/orders/{{ order.id }}/close" class="btn btn-primary">Закрыть</a>
+    <button type="button" class="btn btn-danger" onclick="document.getElementById('reject-modal').style.display='flex'">Отказ</button>
+    {% endif %}
     {% endif %}
   </div>
+</div>
+
+<!-- Модалка отказа -->
+<div id="reject-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:999;">
+  <form method="post" action="/admin/orders/{{ order.id }}/reject" class="card" style="max-width:400px;margin:0 auto;">
+    <div class="card-header"><h3 class="card-title">Отказ от заявки</h3></div>
+    <div class="form-group">
+      <label class="form-label">Причина (необязательно)</label>
+      <textarea name="reason" rows="2" placeholder="Клиент отказался, холостой выезд и т.д."></textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger">Подтвердить отказ</button>
+      <button type="button" class="btn btn-ghost" onclick="document.getElementById('reject-modal').style.display='none'">Отмена</button>
+    </div>
+  </form>
 </div>
 
 <div class="card">

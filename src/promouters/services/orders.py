@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from promouters.models.service_ops import Order
+from promouters.models.service_ops import Order, Stat
 from promouters.models.users import User
 
 
@@ -144,3 +144,40 @@ def status_counts(db: Session) -> dict[str, int]:
         select(Order.status, func.count(Order.id)).group_by(Order.status)
     ).all()
     return {status or "unknown": int(count) for status, count in rows}
+
+
+def reject_order(
+    db: Session,
+    order: Order,
+    *,
+    reason: str | None = None,
+) -> Order:
+    """Reject an order from any status.
+
+    - Sets status to 'declined'
+    - Zeroes all financial fields
+    - Creates a Stat record with sum=0, refused=True
+    - Stores reason in comment field if provided
+    """
+    order.status = "declined"
+    order.sum_amount = 0
+    order.paid_amount = 0
+    order.debt_amount = 0
+    order.zpch_sum = 0
+
+    if reason:
+        order.comment = reason
+
+    # Create stat record for analytics
+    stat = Stat(
+        order_id=order.id,
+        equip_type=order.equip_type,
+        sum=0,
+        refused=True,
+        master_tg=order.assigned_to,
+    )
+    db.add(stat)
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order

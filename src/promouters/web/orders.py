@@ -572,8 +572,10 @@ async def order_close_form(
 async def order_close_submit(
     order_id: int,
     sum_amount: str | None = Form(None),
-    sd_price: str | None = Form(None),
+    paid_amount: str | None = Form(None),
     zpch_sum: str | None = Form(None),
+    debt_amount: str | None = Form(None),
+    debt_payment_date: str | None = Form(None),
     comment: str | None = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*CLOSE_ROLES)),  # noqa: ARG001
@@ -590,18 +592,55 @@ async def order_close_submit(
         except ValueError:
             return None
 
+    from promouters.services.financials import calculate_auto_debt
+
     payload: dict = {"status": "done_pending_sum"}
     parsed_sum = _safe_float(sum_amount)
-    parsed_sd = _safe_float(sd_price)
+    parsed_paid = _safe_float(paid_amount)
     parsed_zpch = _safe_float(zpch_sum)
+    parsed_debt = _safe_float(debt_amount)
+
     if parsed_sum is not None:
         payload["sum_amount"] = parsed_sum
-    if parsed_sd is not None:
-        payload["sd_price"] = parsed_sd
+    if parsed_paid is not None:
+        payload["paid_amount"] = parsed_paid
     if parsed_zpch is not None:
         payload["zpch_sum"] = parsed_zpch
+
+    # Auto-compute debt if not explicitly provided
+    if parsed_debt is not None:
+        payload["debt_amount"] = parsed_debt
+    elif parsed_sum is not None and parsed_paid is not None:
+        auto_debt = calculate_auto_debt(parsed_sum, parsed_paid)
+        if auto_debt > 0:
+            payload["debt_amount"] = auto_debt
+
+    if debt_payment_date and debt_payment_date.strip():
+        try:
+            payload["debt_payment_date"] = datetime.strptime(
+                debt_payment_date.strip(), "%Y-%m-%d"
+            )
+        except ValueError:
+            pass
+
     if comment and comment.strip():
         payload["comment"] = comment.strip()
 
     orders_svc.update_order(db, order, payload)
     return RedirectResponse("/admin/cash", status_code=302)
+
+
+@router.post("/{order_id}/reject")
+async def order_reject_submit(
+    order_id: int,
+    reason: str | None = Form(None),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*CLOSE_ROLES)),  # noqa: ARG001
+):
+    """Reject an order — sets status to declined, zeroes financials, creates stat."""
+    order = orders_svc.get_order(db, order_id)
+    if not order:
+        return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+
+    orders_svc.reject_order(db, order, reason=reason.strip() if reason and reason.strip() else None)
+    return RedirectResponse(f"/admin/orders/{order_id}", status_code=302)

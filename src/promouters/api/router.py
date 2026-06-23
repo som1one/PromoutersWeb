@@ -8,6 +8,7 @@ from promouters.api.v1.finance import router as finance_router
 from promouters.api.v1.health import router as health_router
 from promouters.api.v1.master_requests import router as master_requests_router
 from promouters.api.v1.notifications import router as notifications_router
+from promouters.api.v1.orders import router as orders_router
 from promouters.api.v1.roles import router as roles_router
 from promouters.api.v1.routes import router as routes_router
 from promouters.api.v1.users import router as users_router
@@ -21,6 +22,7 @@ api_router.include_router(finance_router)
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(master_requests_router)
 api_router.include_router(notifications_router)
+api_router.include_router(orders_router)
 api_router.include_router(roles_router)
 api_router.include_router(routes_router)
 api_router.include_router(users_router)

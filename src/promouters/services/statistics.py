@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from promouters.models.service_ops import Order, Stat
 from promouters.models.users import User
-from promouters.services.commission import get_master_pct
+from promouters.services.financials import (
+    calculate_net_amount,
+    calculate_shares,
+    resolve_master_pct as _resolve_master_pct_core,
+)
 from promouters.utils.order_helpers import (
     get_equip_type_name,
     get_equipment_category,
@@ -62,34 +66,25 @@ def get_period_bounds(preset: str = "month") -> tuple[datetime, datetime]:
 
 
 def _safe_net_amount(order: Order) -> float:
-    return round(
-        max(
-            float(order.sum_amount or 0)
-            - float(order.sd_price or 0)
-            - float(order.zpch_sum or 0),
-            0.0,
-        ),
-        2,
-    )
+    return calculate_net_amount(order.sum_amount, order.zpch_sum)
 
 
 def _resolve_master_pct(
     db: Session, order: Order, net_amount: float, masters_map: dict[int, User]
 ) -> float:
-    if getattr(order, "is_warranty", False):
-        return 50.0
-    if order.assigned_to:
-        master = masters_map.get(order.assigned_to)
-        if master and master.master_percentage is not None:
-            return float(master.master_percentage)
-    try:
-        return float(get_master_pct(db, order.equip_type, net_amount))
-    except Exception:
-        return 40.0
+    master = masters_map.get(order.assigned_to) if order.assigned_to else None
+    return _resolve_master_pct_core(
+        db,
+        master=master,
+        equip_type=order.equip_type,
+        net_amount=net_amount,
+        is_warranty=getattr(order, "is_warranty", False),
+    )
 
 
 def _company_share(net_amount: float, pct: float) -> float:
-    return round(max(net_amount - net_amount * (pct / 100.0), 0.0), 2)
+    company, _ = calculate_shares(net_amount, pct)
+    return company
 
 
 def calculate_dashboard_stats(
