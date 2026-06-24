@@ -12,6 +12,7 @@ from promouters.db.session import get_db
 from promouters.models.users import User
 from promouters.services import cash as cash_svc
 from promouters.services import cities as cities_svc
+from promouters.services.financials import calculate_net_amount, calculate_shares, resolve_master_pct
 from promouters.web.deps import render, require_roles
 
 
@@ -66,7 +67,32 @@ async def cash_report(
                 or f"{master.first_name} {master.last_name}".strip()
             )
         group["count"] += 1
-        group["total_sum"] += float(order.sum_amount or 0)
+        # Show company share (what company actually receives) instead of raw sum_amount
+        net = calculate_net_amount(order.sum_amount, order.zpch_sum)
+        pct = resolve_master_pct(
+            db,
+            master=master,
+            equip_type=order.equip_type,
+            net_amount=net,
+            is_warranty=getattr(order, "is_warranty", False),
+        )
+        company_share, _ = calculate_shares(net, pct)
+        group["total_sum"] += company_share
+
+    # Pre-compute company shares for individual orders table
+    order_company_shares: dict[int, float] = {}
+    for order in pending_orders:
+        net = calculate_net_amount(order.sum_amount, order.zpch_sum)
+        master = masters_map.get(order.assigned_to) if order.assigned_to else None
+        pct = resolve_master_pct(
+            db,
+            master=master,
+            equip_type=order.equip_type,
+            net_amount=net,
+            is_warranty=getattr(order, "is_warranty", False),
+        )
+        company, _ = calculate_shares(net, pct)
+        order_company_shares[order.id] = company
 
     flash_success = None
     if request.query_params.get("accepted") == "order":
@@ -83,6 +109,7 @@ async def cash_report(
         pending_orders=pending_orders,
         pending_masters=sorted(grouped_masters.values(), key=lambda item: item["master_name"]),
         masters_map=masters_map,
+        order_company_shares=order_company_shares,
         filter={"city_id": city_id, "date_from": df.date().isoformat(), "date_to": dt.date().isoformat()},
         available_cities=cities_svc.list_cities(db),
         flash_success=flash_success,

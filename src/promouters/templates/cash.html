@@ -55,7 +55,7 @@
 <div class="card" style="margin-top:20px;">
   <div class="card-header">
     <h3 class="card-title">Ожидают приёма в кассу</h3>
-    <p class="card-desc">Заявки со статусом "ожидает кассу"</p>
+    <p class="card-desc">Заявки со статусом "ожидает кассу" — показана доля компании</p>
   </div>
   <div class="table-wrap">
     <table class="data-table data-table-stack">
@@ -111,7 +111,7 @@
             {{ master.full_name or master.name or (master.first_name ~ ' ' ~ master.last_name) if master else '—' }}
           </td>
           <td data-label="Адрес">{{ [order.street, order.house, order.flat]|select|join(', ') or '—' }}</td>
-          <td data-label="Сумма">{{ order.sum_amount or 0 }} ₽</td>
+          <td data-label="Сумма">{{ '%.2f'|format(order_company_shares.get(order.id, 0)) }} ₽</td>
           <td data-label="">
             <form method="post" action="/admin/cash/accept-order/{{ order.id }}" style="margin:0;">
               <button type="submit" class="btn btn-sm btn-secondary">Принять</button>
