@@ -135,7 +135,14 @@ async def legacy_order_assign(
         return RedirectResponse("/admin/orders?error=notfound", status_code=302)
     raw_value = (master_id or assigned_to or "").strip()
     payload = {"assigned_to": int(raw_value)} if raw_value else {"assigned_to": None}
+    old_assigned_to = order.assigned_to
     orders_svc.update_order(db, order, payload)
+
+    # Notify new master via VK
+    if order.assigned_to and order.assigned_to != old_assigned_to:
+        from promouters.services.vk_notify import notify_master_new_order
+        notify_master_new_order(order)
+
     return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
 
 

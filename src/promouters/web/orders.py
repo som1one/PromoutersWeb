@@ -352,6 +352,12 @@ async def order_create_submit(
         ),
         created_by_tg_id=user.tg_id,
     )
+
+    # Notify master via VK if assigned
+    if order.assigned_to:
+        from promouters.services.vk_notify import notify_master_new_order
+        notify_master_new_order(order)
+
     return RedirectResponse(f"/admin/orders/{order.id}?created=1", status_code=302)
 
 
@@ -497,6 +503,9 @@ async def order_edit_submit(
     order = orders_svc.get_order(db, order_id)
     if not order:
         return RedirectResponse("/admin/orders?error=notfound", status_code=302)
+
+    old_assigned_to = order.assigned_to
+
     orders_svc.update_order(
         db,
         order,
@@ -522,6 +531,12 @@ async def order_edit_submit(
             is_warranty=is_warranty,
         ),
     )
+
+    # Notify master via VK if assignment changed
+    if order.assigned_to and order.assigned_to != old_assigned_to:
+        from promouters.services.vk_notify import notify_master_new_order
+        notify_master_new_order(order)
+
     return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
 
 
