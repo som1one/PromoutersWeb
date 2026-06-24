@@ -1142,9 +1142,8 @@ class VKBot:
             
             for order in orders:
                 order_sum = order.sum_amount or 0
-                sd_price = getattr(order, 'sd_price', 0) or 0
                 zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-                net_amount = max(order_sum - sd_price - zpch_sum, 0)
+                net_amount = max(order_sum - zpch_sum, 0)
                 
                 # Проверяем индивидуальный процент мастера
                 if master and master.master_percentage is not None:
@@ -1221,9 +1220,8 @@ class VKBot:
         
         for order in orders:
             order_sum = order.sum_amount or 0
-            sd_price = getattr(order, 'sd_price', 0) or 0
             zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             
             # Проверяем индивидуальный процент мастера
             master = None
@@ -1247,7 +1245,7 @@ class VKBot:
                 stat = Stat(
                     order_id=order.id,
                     equip_type=order.equip_type,
-                    sum=order_sum,
+                    sum=net_amount,
                     refused=(order_sum == 0),
                     master_tg=master_id
                 )
@@ -1403,9 +1401,8 @@ class VKBot:
         if master_name:
             master_line = f"🔧 Мастер: {master_name}"
         sum_amount = float(getattr(order, "sum_amount", 0) or 0)
-        sd_price = float(getattr(order, "sd_price", 0) or 0)
         zpch_sum = float(getattr(order, "zpch_sum", 0) or 0)
-        net_amount = max(sum_amount - sd_price - zpch_sum, 0)
+        net_amount = max(sum_amount - zpch_sum, 0)
         has_receipt = bool(getattr(order, "receipt_file_id", None) or getattr(order, "receipt_file_path", None))
         receipt_status = "✅ Есть" if has_receipt else "❌ Нет"
         created = self._format_local_datetime(getattr(order, "created_at", None), tz)
@@ -2486,8 +2483,8 @@ class VKBot:
                 self.send_message(user_id, "❌ Заявка не найдена")
                 return
             
-            # Используем оплаченную сумму для расчета комиссии (если есть долг, комиссия считается от оплаченной суммы)
-            net_amount = max(paid_amount - sd_price - zpch_sum, 0)
+            # Комиссия считается от полной суммы заказа минус запчасти (sd_price исключён из расчёта)
+            net_amount = max(order_sum - zpch_sum, 0)
             
             # Проверяем индивидуальный процент мастера
             master = None
@@ -2995,9 +2992,8 @@ class VKBot:
             
             for order in pending_orders:
                 order_sum = order.sum_amount or 0
-                sd_price = getattr(order, 'sd_price', 0) or 0
                 zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-                net_amount = max(order_sum - sd_price - zpch_sum, 0)
+                net_amount = max(order_sum - zpch_sum, 0)
                 
                 # Проверяем индивидуальный процент мастера
                 master = None

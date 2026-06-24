@@ -774,7 +774,7 @@ class TelegramBot:
                 self.send_message(user_id, "❌ Заявка не найдена")
                 return
             
-            net_amount = max(paid_amount - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             
             master = None
             if order.assigned_to:
@@ -945,7 +945,7 @@ class TelegramBot:
         sum_amount = float(getattr(order, "sum_amount", 0) or 0)
         sd_price = float(getattr(order, "sd_price", 0) or 0)
         zpch_sum = float(getattr(order, "zpch_sum", 0) or 0)
-        net_amount = max(sum_amount - sd_price - zpch_sum, 0)
+        net_amount = max(sum_amount - zpch_sum, 0)
         has_receipt = bool(getattr(order, "receipt_file_id", None) or getattr(order, "receipt_file_path", None))
         receipt_status = "✅ Есть" if has_receipt else "❌ Нет"
         created = self._format_local_datetime(getattr(order, "created_at", None), tz)
@@ -1600,7 +1600,7 @@ class TelegramBot:
                 order_sum = order.sum_amount or 0
                 sd_price = getattr(order, 'sd_price', 0) or 0
                 zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-                net_amount = max(order_sum - sd_price - zpch_sum, 0)
+                net_amount = max(order_sum - zpch_sum, 0)
                 
                 master = None
                 if order.assigned_to:
@@ -2038,7 +2038,7 @@ class TelegramBot:
                 order_sum = order.sum_amount or 0
                 sd_price = getattr(order, 'sd_price', 0) or 0
                 zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-                net_amount = max(order_sum - sd_price - zpch_sum, 0)
+                net_amount = max(order_sum - zpch_sum, 0)
                 
                 if master and master.master_percentage is not None:
                     master_pct = float(master.master_percentage)
@@ -2414,7 +2414,7 @@ class TelegramBot:
             order_sum = order.sum_amount or 0
             sd_price = getattr(order, 'sd_price', 0) or 0
             zpch_sum = getattr(order, 'zpch_sum', 0) or 0
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
 
             # Проверяем индивидуальный процент мастера
             master_user = None

@@ -1385,7 +1385,7 @@ async def index(request: Request):
             order_sum = float(order.sum_amount or 0)
             sd_price = float(order.sd_price or 0)
             zpch_sum = float(order.zpch_sum or 0)
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             total_net_sum_month += net_amount
         avg_check_month = total_net_sum_month / completed_this_month if completed_this_month > 0 else 0.0
         
@@ -2370,7 +2370,7 @@ async def orders_list(
             order_sum = float(order.sum_amount or 0)
             sd_price = float(order.sd_price or 0)
             zpch_sum = float(order.zpch_sum or 0)
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             total_sum += order_sum
             total_net_sum += net_amount
         
@@ -2853,7 +2853,7 @@ async def order_edit(request: Request, order_id: int, bso_file: Optional[UploadF
                 order_sum = float(order.sum_amount or 0)
                 sd_price = float(order.sd_price or 0)
                 zpch_sum = float(order.zpch_sum or 0)
-                net_amount = max(order_sum - sd_price - zpch_sum, 0)
+                net_amount = max(order_sum - zpch_sum, 0)
                 
                 stat = Stat(
                     order_id=order.id,
@@ -3386,7 +3386,7 @@ async def cash_overview(
             order_sum = float(order.sum_amount or 0)
             sd_price = float(order.sd_price or 0)
             zpch_sum = float(order.zpch_sum or 0)
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             
             # Используем индивидуальный процент мастера, если установлен
             master = session.query(User).filter_by(tg_id=master_id).first()
@@ -3494,7 +3494,7 @@ async def accept_order_cash(request: Request, order_id: int):
         order_sum = float(order.sum_amount or 0)
         sd_price = float(order.sd_price or 0)
         zpch_sum = float(order.zpch_sum or 0)
-        net_amount = max(order_sum - sd_price - zpch_sum, 0)
+        net_amount = max(order_sum - zpch_sum, 0)
         
         # Переводим в статус completed
         order.status = "completed"
@@ -3567,7 +3567,7 @@ async def accept_cash(request: Request, master_id: int):
             order_sum = float(order.sum_amount or 0)
             sd_price = float(order.sd_price or 0)
             zpch_sum = float(order.zpch_sum or 0)
-            net_amount = max(order_sum - sd_price - zpch_sum, 0)
+            net_amount = max(order_sum - zpch_sum, 0)
             
             # Переводим в статус completed
             order.status = "completed"
