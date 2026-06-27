@@ -9,6 +9,7 @@ from promouters.models.enums import PayoutStatus
 from promouters.models.users import User
 from promouters.schemas.finance import (
     PayoutListFilters,
+    PayoutListResponse,
     PayoutRateCreate,
     PayoutRateRead,
     PayoutRateUpdate,
@@ -16,10 +17,15 @@ from promouters.schemas.finance import (
     PayoutSummaryRead,
 )
 from promouters.services.finance import (
+    approve_and_pay_payout,
+    approve_payout,
     create_payout_rate,
+    get_payout_or_404,
     get_payout_rate_or_404,
     list_payout_rates_for_actor,
     list_payouts_for_actor,
+    list_payouts_raw_for_actor,
+    mark_payout_paid,
     summarize_payouts_by_promoter,
     to_payout_rate_read,
     to_payout_read,
@@ -59,16 +65,19 @@ def update_payout_rate_endpoint(
     return to_payout_rate_read(update_payout_rate(db, current_user, payout_rate, payload, request=request))
 
 
-@router.get("/payouts", response_model=list[PayoutRead])
+@router.get("/payouts", response_model=PayoutListResponse)
 def get_payouts(
     promoter_id: UUID | None = Query(default=None),
     route_id: UUID | None = Query(default=None),
     branch_id: UUID | None = Query(default=None),
     status_filter: PayoutStatus | None = Query(default=None, alias="status"),
+    search: str | None = Query(default=None, min_length=2),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[PayoutRead]:
-    payouts = list_payouts_for_actor(
+) -> PayoutListResponse:
+    return list_payouts_for_actor(
         db,
         current_user,
         filters=PayoutListFilters(
@@ -76,9 +85,11 @@ def get_payouts(
             route_id=route_id,
             branch_id=branch_id,
             status=status_filter,
+            search=search,
+            page=page,
+            page_size=page_size,
         ),
     )
-    return [to_payout_read(payout) for payout in payouts]
 
 
 @router.get("/payouts/summary/by-promoter", response_model=list[PayoutSummaryRead])
@@ -87,9 +98,45 @@ def get_payout_summary_by_promoter(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[PayoutSummaryRead]:
-    payouts = list_payouts_for_actor(
+    payouts = list_payouts_raw_for_actor(
         db,
         current_user,
         filters=PayoutListFilters(branch_id=branch_id),
     )
     return summarize_payouts_by_promoter(payouts)
+
+
+@router.post("/payouts/{payout_id}/approve-and-pay", response_model=PayoutRead)
+def approve_and_pay_payout_endpoint(
+    payout_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PayoutRead:
+    payout = get_payout_or_404(db, payout_id)
+    updated = approve_and_pay_payout(db, current_user, payout, request=request)
+    return to_payout_read(updated)
+
+
+@router.post("/payouts/{payout_id}/approve", response_model=PayoutRead)
+def approve_payout_endpoint(
+    payout_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PayoutRead:
+    payout = get_payout_or_404(db, payout_id)
+    updated = approve_payout(db, current_user, payout, request=request)
+    return to_payout_read(updated)
+
+
+@router.post("/payouts/{payout_id}/pay", response_model=PayoutRead)
+def mark_payout_paid_endpoint(
+    payout_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PayoutRead:
+    payout = get_payout_or_404(db, payout_id)
+    updated = mark_payout_paid(db, current_user, payout, request=request)
+    return to_payout_read(updated)

@@ -40,6 +40,18 @@ from _vk.config import DEFAULT_TZ, DEFAULT_TZ_NAME
 from _vk.state_manager import user_states
 from _vk.services.city import CityCreationFlow
 
+# Route management integration (promouters package)
+try:
+    from promouters.integrations.vk_bot.handlers.routes import RouteCommandHandler
+    from promouters.integrations.vk_bot.geo_tracker import GeoTracker
+    from promouters.db.session import SessionLocal as PromoSessionLocal
+    ROUTE_INTEGRATION_AVAILABLE = True
+except ImportError as _route_import_err:
+    ROUTE_INTEGRATION_AVAILABLE = False
+    RouteCommandHandler = None  # type: ignore[assignment,misc]
+    GeoTracker = None  # type: ignore[assignment,misc]
+    PromoSessionLocal = None  # type: ignore[assignment,misc]
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -117,6 +129,16 @@ class VKBot:
         self.states = user_states
         self.city_flow = CityCreationFlow(self, user_states)
 
+        # Initialize route management integration
+        self.route_handler = None
+        self.geo_tracker = None
+        if ROUTE_INTEGRATION_AVAILABLE:
+            try:
+                self.geo_tracker = GeoTracker(vk_api=self.vk, interval_minutes=30)
+                logger.info("✅ GeoTracker инициализирован (интервал 30 мин)")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось инициализировать GeoTracker: {e}")
+
         logger.info("✅ Бот успешно инициализирован")
 
     # ===== 🔧 Служебные =====
@@ -157,6 +179,40 @@ class VKBot:
             logger.exception(f"Ошибка при отправке сообщения пользователю {user_id}")
         except Exception as e:
             logger.exception(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
+
+    def _extract_geo_from_message(self, message: dict) -> Optional[dict]:
+        """Extract geolocation from VK message attachments or geo field.
+
+        VK messages can contain geo in two ways:
+        1. message['geo'] - built-in geo location sharing
+        2. Attachments with type 'geo' (less common)
+
+        Returns:
+            dict with 'latitude', 'longitude' and optionally 'accuracy' keys,
+            or None if no geo found.
+        """
+        # Check message-level geo field (VK built-in location sharing)
+        geo = message.get("geo")
+        if geo and isinstance(geo, dict):
+            coords = geo.get("coordinates")
+            if coords and isinstance(coords, dict):
+                lat = coords.get("latitude")
+                lon = coords.get("longitude")
+                if lat is not None and lon is not None:
+                    return {"latitude": float(lat), "longitude": float(lon)}
+
+        # Check attachments for geo type
+        attachments = message.get("attachments", [])
+        for att in attachments:
+            if att.get("type") == "geo":
+                geo_data = att.get("geo", {})
+                coords = geo_data.get("coordinates", {})
+                lat = coords.get("latitude")
+                lon = coords.get("longitude")
+                if lat is not None and lon is not None:
+                    return {"latitude": float(lat), "longitude": float(lon)}
+
+        return None
 
     def get_keyboard(self, role: str):
         """Получить клавиатуру по роли"""
@@ -331,8 +387,65 @@ class VKBot:
                     self.send_message(message["from_id"], "❌ Не удалось распознать чек. Отправьте фото или файл ещё раз.")
                     return
 
+        # Handle geo location attachments for GeoTracker
+        if ROUTE_INTEGRATION_AVAILABLE and self.geo_tracker and attachments:
+            geo = self._extract_geo_from_message(message)
+            if geo is not None:
+                self.geo_tracker.on_geo_received(
+                    user_id=user_id,
+                    lat=geo["latitude"],
+                    lon=geo["longitude"],
+                    accuracy=geo.get("accuracy"),
+                )
+
         if not text:
             return
+
+        # --- Route command handling (promouters integration) ---
+        if ROUTE_INTEGRATION_AVAILABLE:
+            geo = self._extract_geo_from_message(message)
+            text_lower_route = text.lower().strip()
+
+            # Check if user is awaiting leaflet count input
+            if RouteCommandHandler._awaiting_leaflet.get(user_id):
+                try:
+                    db = PromoSessionLocal()
+                    handler = RouteCommandHandler(db=db)
+                    response = handler.handle_leaflet_count(user_id, text)
+                    self.send_message(user_id, response)
+                except Exception as e:
+                    logger.exception("Ошибка обработки ввода количества (user_id=%s): %s", user_id, e)
+                finally:
+                    db.close()
+                return
+
+            # "В работе" command - start shift
+            if "в работе" in text_lower_route:
+                try:
+                    db = PromoSessionLocal()
+                    handler = RouteCommandHandler(db=db)
+                    response = handler.handle_start_shift(user_id, geo)
+                    self.send_message(user_id, response)
+                except Exception as e:
+                    logger.exception("Ошибка старта смены (user_id=%s): %s", user_id, e)
+                    self.send_message(user_id, "Произошла ошибка при старте смены. Попробуйте позже.")
+                finally:
+                    db.close()
+                return
+
+            # "Завершить" command - finish shift
+            if "завершить" in text_lower_route:
+                try:
+                    db = PromoSessionLocal()
+                    handler = RouteCommandHandler(db=db)
+                    response = handler.handle_finish_shift(user_id, geo)
+                    self.send_message(user_id, response)
+                except Exception as e:
+                    logger.exception("Ошибка завершения смены (user_id=%s): %s", user_id, e)
+                    self.send_message(user_id, "Произошла ошибка при завершении смены. Попробуйте позже.")
+                finally:
+                    db.close()
+                return
 
         session = get_session()
         try:
@@ -3070,6 +3183,15 @@ class VKBot:
     def run(self):
         """Запустить бота"""
         logger.info("🔄 Запуск бота...")
+
+        # Start GeoTracker background thread
+        if ROUTE_INTEGRATION_AVAILABLE and self.geo_tracker:
+            try:
+                self.geo_tracker.start()
+                logger.info("🌍 GeoTracker фоновый поток запущен")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось запустить GeoTracker: {e}")
+
         try:
             for event in self.longpoll.listen():
                 # Обработка разных типов long poll
@@ -3090,6 +3212,14 @@ class VKBot:
             logger.info("⚠️ Остановка бота пользователем")
         except Exception:
             logger.exception("❌ Неожиданная ошибка в основном цикле")
+        finally:
+            # Stop GeoTracker on shutdown
+            if self.geo_tracker:
+                try:
+                    self.geo_tracker.stop()
+                    logger.info("🌍 GeoTracker остановлен")
+                except Exception:
+                    pass
 
 
 

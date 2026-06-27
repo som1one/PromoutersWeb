@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from promouters.models.enums import PayoutRateType, PayoutStatus, RoleCode, RouteStatus
@@ -15,6 +15,7 @@ from promouters.models.routing import PromoterSession, Route
 from promouters.models.users import Branch, Role, User
 from promouters.schemas.finance import (
     PayoutListFilters,
+    PayoutListResponse,
     PayoutRateCreate,
     PayoutRateRead,
     PayoutRateUpdate,
@@ -277,13 +278,13 @@ def update_payout_rate(
     return get_payout_rate_or_404(db, payout_rate.id)
 
 
-def list_payouts_for_actor(
-    db: Session,
+def _build_payouts_query(
     actor_user: User,
     *,
     filters: PayoutListFilters,
-) -> list[Payout]:
-    stmt = payout_query().order_by(Payout.calculated_at.desc().nullslast(), Payout.created_at.desc())
+) -> Select[tuple[Payout]]:
+    """Build filtered query for payouts based on actor permissions and filters."""
+    stmt = payout_query()
     role_code = get_role_code(actor_user)
 
     if role_code == RoleCode.OWNER:
@@ -304,6 +305,67 @@ def list_payouts_for_actor(
     if filters.status is not None:
         stmt = stmt.where(Payout.status == filters.status)
 
+    if filters.search is not None and len(filters.search) >= 2:
+        search_term = f"%{filters.search}%"
+        stmt = stmt.where(
+            or_(
+                Payout.promoter.has(
+                    or_(
+                        User.first_name.ilike(search_term),
+                        User.last_name.ilike(search_term),
+                        func.concat(User.first_name, " ", User.last_name).ilike(search_term),
+                    )
+                ),
+                Payout.route.has(Route.title.ilike(search_term)),
+            )
+        )
+
+    return stmt
+
+
+def list_payouts_for_actor(
+    db: Session,
+    actor_user: User,
+    *,
+    filters: PayoutListFilters,
+) -> PayoutListResponse:
+    stmt = _build_payouts_query(actor_user, filters=filters)
+
+    # Join Route for ORDER BY on work_date.
+    # joinedload in payout_query() uses aliased joins for loading,
+    # so this explicit join is only used for ordering/filtering in the WHERE clause.
+    stmt = stmt.join(Route, Payout.route_id == Route.id)
+
+    # Sort by session date (route work_date) descending, then by created_at descending as tiebreaker
+    stmt = stmt.order_by(Route.work_date.desc(), Payout.created_at.desc())
+
+    # Count total before pagination
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = db.scalar(count_stmt) or 0
+
+    # Apply pagination
+    offset = (filters.page - 1) * filters.page_size
+    stmt = stmt.offset(offset).limit(filters.page_size)
+
+    items = list(db.scalars(stmt))
+
+    return PayoutListResponse(
+        items=[to_payout_read(payout) for payout in items],
+        total=total,
+        page=filters.page,
+        page_size=filters.page_size,
+    )
+
+
+def list_payouts_raw_for_actor(
+    db: Session,
+    actor_user: User,
+    *,
+    filters: PayoutListFilters,
+) -> list[Payout]:
+    """Return raw Payout objects without pagination (used for summary aggregation)."""
+    stmt = _build_payouts_query(actor_user, filters=filters)
+    stmt = stmt.order_by(Payout.calculated_at.desc().nullslast(), Payout.created_at.desc())
     return list(db.scalars(stmt))
 
 
@@ -361,6 +423,21 @@ def _build_leaflet_payout(rate: PayoutRate, session: PromoterSession) -> tuple[D
     return units, amount, details, notes
 
 
+def _build_fixed_shift_payout(rate: PayoutRate, session: PromoterSession) -> tuple[Decimal, Decimal, dict, str]:
+    """Calculate fixed shift payout — amount equals rate_amount regardless of time."""
+    units = Decimal("1")
+    amount = _quantize(rate.amount)
+    details = {
+        "rate_type": rate.rate_type.value,
+        "rate_amount": str(rate.amount),
+        "units": "1",
+        "unit_label": "shift",
+        "formula": f"{rate.amount} * 1",
+    }
+    notes = f"Fixed shift payout: {rate.amount}"
+    return units, amount, details, notes
+
+
 def calculate_payout_for_route(
     db: Session,
     *,
@@ -380,6 +457,8 @@ def calculate_payout_for_route(
         units, amount, details, notes = _build_hourly_payout(payout_rate, session)
     elif payout_rate.rate_type == PayoutRateType.PER_LEAFLET:
         units, amount, details, notes = _build_leaflet_payout(payout_rate, session)
+    elif payout_rate.rate_type == PayoutRateType.FIXED_SHIFT:
+        units, amount, details, notes = _build_fixed_shift_payout(payout_rate, session)
     else:
         return None
 
@@ -503,6 +582,44 @@ def mark_payout_paid(
         entity_type="payout",
         entity_id=str(payout.id),
         action="payout.mark_paid",
+        payload={"before": before, "after": to_payout_read(updated).model_dump(mode="json")},
+        request=request,
+    )
+    db.commit()
+    return get_payout_or_404(db, payout.id)
+
+
+def approve_and_pay_payout(
+    db: Session,
+    actor_user: User,
+    payout: Payout,
+    *,
+    request: Request | None = None,
+) -> Payout:
+    """CALCULATED -> APPROVED -> PAID in a single transaction."""
+    _ensure_can_change_payout(actor_user, payout)
+    if payout.status != PayoutStatus.CALCULATED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Approve-and-pay allowed only for CALCULATED, got {payout.status.value}",
+        )
+    before = to_payout_read(payout).model_dump(mode="json")
+    now = datetime.now(UTC)
+    payout.status = PayoutStatus.PAID
+    payout.approved_at = now
+    payout.approved_by_id = actor_user.id
+    payout.paid_at = now
+    db.add(payout)
+    db.flush()
+
+    updated = get_payout_or_404(db, payout.id)
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=payout.route.branch_id if payout.route else None,
+        entity_type="payout",
+        entity_id=str(payout.id),
+        action="payout.approve_and_pay",
         payload={"before": before, "after": to_payout_read(updated).model_dump(mode="json")},
         request=request,
     )

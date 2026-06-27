@@ -48,7 +48,7 @@ async def payouts_list(
     user: User = Depends(require_roles(*VIEW_ROLES)),
 ):
     filters = _filters_from_query(promoter_id, status_filter)
-    payouts = svc.list_payouts_for_actor(db, user, filters=filters)
+    payouts = svc.list_payouts_raw_for_actor(db, user, filters=filters)
     summary = svc.summarize_payouts_by_promoter(payouts)
     return render(
         request,
@@ -117,7 +117,7 @@ async def payouts_export_csv(
     user: User = Depends(require_roles(*VIEW_ROLES)),
 ):
     filters = _filters_from_query(promoter_id, status_filter)
-    payouts = svc.list_payouts_for_actor(db, user, filters=filters)
+    payouts = svc.list_payouts_raw_for_actor(db, user, filters=filters)
     buf = io.StringIO()
     buf.write("\ufeff")  # UTF-8 BOM для Excel
     writer = csv.writer(buf, delimiter=";")

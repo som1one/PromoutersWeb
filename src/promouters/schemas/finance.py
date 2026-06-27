@@ -109,6 +109,16 @@ class PayoutListFilters(BaseModel):
     route_id: UUID | None = None
     branch_id: UUID | None = None
     status: PayoutStatus | None = None
+    search: str | None = Field(default=None, min_length=2)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=100)
+
+
+class PayoutListResponse(BaseModel):
+    items: list[PayoutRead]
+    total: int
+    page: int
+    page_size: int
 
 
 class PayoutSummaryRead(BaseModel):
