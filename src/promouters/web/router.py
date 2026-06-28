@@ -24,6 +24,7 @@ from promouters.web import (
     masters as masters_router,
     notifications as notifications_router,
     orders as orders_router,
+    payout_rates as payout_rates_router,
     payouts as payouts_router,
     promoters as promoters_router,
     routes_promoter as routes_promoter_router,
@@ -51,6 +52,7 @@ web_router.include_router(stats_router.router, prefix="/stats")
 web_router.include_router(users_router.router, prefix="/users")
 web_router.include_router(routes_promoter_router.router, prefix="/routes")
 web_router.include_router(payouts_router.router, prefix="/payouts")
+web_router.include_router(payout_rates_router.router, prefix="/payout-rates")
 web_router.include_router(expense_plans_router.router, prefix="/expense-plans")
 web_router.include_router(master_requests_router.router, prefix="/master-requests")
 web_router.include_router(audit_router.router, prefix="/audit")

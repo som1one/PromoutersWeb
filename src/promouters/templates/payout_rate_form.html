@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block page_title %}{% if rate %}Редактировать тариф{% else %}Новый тариф{% endif %} — СУУПР{% endblock %}
+{% block content %}
+{% set is_new = rate is none %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if is_new %}Новый тариф{% else %}Редактировать: {{ rate.name }}{% endif %}</h1>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/payout-rates" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="{% if is_new %}/admin/payout-rates/create{% else %}/admin/payout-rates/{{ rate.id }}/update{% endif %}" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" name="name" value="{{ rate.name if rate else '' }}" required maxlength="255" placeholder="Например: Почасовая ставка">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Тип</label>
+      <select name="rate_type" required>
+        <option value="hourly" {% if rate and rate.rate_type.value == 'hourly' %}selected{% endif %}>Почасовая</option>
+        <option value="per_leaflet" {% if rate and rate.rate_type.value == 'per_leaflet' %}selected{% endif %}>За листовку</option>
+        <option value="fixed_shift" {% if rate and rate.rate_type.value == 'fixed_shift' %}selected{% endif %}>За смену</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Сумма</label>
+      <input type="number" name="amount" value="{{ rate.amount if rate else '' }}" required min="0.01" step="0.01" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Валюта</label>
+      <input type="text" name="currency" value="{{ rate.currency if rate else 'RUB' }}" maxlength="3" placeholder="RUB">
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id">
+        <option value="">— Все филиалы —</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if rate and rate.branch_id and rate.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">{% if is_new %}Создать тариф{% else %}Сохранить{% endif %}</button>
+  </div>
+</form>
+{% endblock %}

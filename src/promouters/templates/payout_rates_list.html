@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block page_title %}Тарифы — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Тарифы оплаты</h1>
+    <p class="page-subtitle">Всего: {{ rates|length }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/payout-rates/create" class="btn">➕ Новый тариф</a>
+  </div>
+</div>
+
+<div class="card card-flat">
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Тип</th>
+          <th>Сумма</th>
+          <th>Валюта</th>
+          <th>Филиал</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rates %}
+        <tr>
+          <td data-label="Название"><b>{{ r.name }}</b></td>
+          <td data-label="Тип"><span class="badge">{{ status_label(r.rate_type) }}</span></td>
+          <td data-label="Сумма">{{ r.amount }}</td>
+          <td data-label="Валюта">{{ r.currency }}</td>
+          <td data-label="Филиал">{{ r.branch.name if r.branch else 'Все филиалы' }}</td>
+          <td data-label="Действия">
+            <a href="/admin/payout-rates/{{ r.id }}/edit" class="btn btn-sm btn-secondary">Редактировать</a>
+            <form method="post" action="/admin/payout-rates/{{ r.id }}/delete" style="display:inline;" onsubmit="return confirm('Удалить тариф «{{ r.name }}»?');">
+              <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty-state">Тарифов нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
