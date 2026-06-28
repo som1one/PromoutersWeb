@@ -64,10 +64,9 @@ try:
             _promo_db_url = os.getenv("DATABASE_URL", "postgresql+psycopg2://suupr:suupr_password@localhost:5432/suupr")
     _promo_engine = _promo_create_engine(_promo_db_url, future=True, pool_pre_ping=True)
     PromoSessionLocal = _promo_sessionmaker(bind=_promo_engine, autoflush=False, autocommit=False)
-    logger.info("Route integration: DB = %s", _promo_db_url.split("@")[-1] if "@" in _promo_db_url else "configured")
 
     ROUTE_INTEGRATION_AVAILABLE = True
-except ImportError as _route_import_err:
+except Exception as _route_import_err:
     ROUTE_INTEGRATION_AVAILABLE = False
     RouteCommandHandler = None  # type: ignore[assignment,misc]
     GeoTracker = None  # type: ignore[assignment,misc]
