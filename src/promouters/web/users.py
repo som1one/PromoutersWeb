@@ -179,28 +179,10 @@ async def user_register_submit(
         except ValueError:
             city_int = None
 
-    payload = UserCreate(
-        username=username.strip(),
-        email=email.strip(),
-        phone=phone.strip(),
-        password=password,
-        first_name=first_name.strip(),
-        last_name=last_name.strip(),
-        middle_name=None,
-        tg_id=int(tg_id.strip()) if tg_id.strip() else None,
-        status=UserStatus.ACTIVE,
-        role_id=role.id,
-        branch_id=branch_uuid,
-        city_id=city_int,
-    )
-    try:
-        users_svc.create_user(db, user, payload, request=request)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("user.create failed")
+    def _render_register_error(message: str):
         roles = list(db.scalars(select(Role).order_by(Role.name)))
         branches = list(db.scalars(select(Branch).order_by(Branch.name)))
         cities = list(db.scalars(select(City).order_by(City.name)))
-        message = getattr(exc, "detail", None) or str(exc) or "Не удалось создать пользователя"
         return render(
             request,
             "register.html",
@@ -209,8 +191,48 @@ async def user_register_submit(
             roles=roles,
             branches=branches,
             cities=cities,
-            flash_error=str(message),
+            flash_error=message,
         )
+
+    # Client-side validation: password length
+    if len(password) < 8:
+        return _render_register_error("Пароль должен быть не менее 8 символов.")
+
+    try:
+        payload = UserCreate(
+            username=username.strip(),
+            email=email.strip(),
+            phone=phone.strip(),
+            password=password,
+            first_name=first_name.strip(),
+            last_name=last_name.strip(),
+            middle_name=None,
+            tg_id=int(tg_id.strip()) if tg_id.strip() else None,
+            status=UserStatus.ACTIVE,
+            role_id=role.id,
+            branch_id=branch_uuid,
+            city_id=city_int,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _render_register_error(f"Ошибка валидации: {exc}")
+
+    try:
+        users_svc.create_user(db, user, payload, request=request)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("user.create failed")
+        db.rollback()
+        raw = str(getattr(exc, "detail", None) or exc or "Не удалось создать пользователя")
+        if "uq_users_tg_id" in raw or "already exists" in raw:
+            message = "Пользователь с таким Telegram ID уже существует."
+        elif "uq_users_username" in raw:
+            message = "Пользователь с таким логином уже существует."
+        elif "uq_users_email" in raw:
+            message = "Пользователь с таким email уже существует."
+        elif "uq_users_phone" in raw:
+            message = "Пользователь с таким телефоном уже существует."
+        else:
+            message = raw
+        return _render_register_error(message)
     return _flash_success_redirect("/admin/users")
 
 
