@@ -44,7 +44,17 @@ from _vk.services.city import CityCreationFlow
 try:
     from promouters.integrations.vk_bot.handlers.routes import RouteCommandHandler
     from promouters.integrations.vk_bot.geo_tracker import GeoTracker
-    from promouters.db.session import SessionLocal as PromoSessionLocal
+
+    # Create a separate DB session for promouters database
+    from sqlalchemy import create_engine as _promo_create_engine
+    from sqlalchemy.orm import sessionmaker as _promo_sessionmaker, Session as _PromoSession
+    _promo_db_url = os.getenv(
+        "PROMOUTERS_DATABASE_URL",
+        "postgresql+psycopg2://suupr:suupr_password@localhost:5432/suupr"
+    )
+    _promo_engine = _promo_create_engine(_promo_db_url, future=True, pool_pre_ping=True)
+    PromoSessionLocal = _promo_sessionmaker(bind=_promo_engine, autoflush=False, autocommit=False)
+
     ROUTE_INTEGRATION_AVAILABLE = True
 except ImportError as _route_import_err:
     ROUTE_INTEGRATION_AVAILABLE = False
@@ -412,7 +422,7 @@ class VKBot:
             # Check if user is awaiting leaflet count input
             if RouteCommandHandler._awaiting_leaflet.get(user_id):
                 try:
-                    db = get_session()
+                    db = PromoSessionLocal()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_leaflet_count(user_id, text)
                     self.send_message(user_id, response)
@@ -425,7 +435,7 @@ class VKBot:
             # "В работе" command - start shift
             if "в работе" in text_lower_route:
                 try:
-                    db = get_session()
+                    db = PromoSessionLocal()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_start_shift(user_id, geo)
                     self.send_message(user_id, response)
@@ -439,7 +449,7 @@ class VKBot:
             # "Завершить" command - finish shift
             if "завершить" in text_lower_route:
                 try:
-                    db = get_session()
+                    db = PromoSessionLocal()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_finish_shift(user_id, geo)
                     self.send_message(user_id, response)
