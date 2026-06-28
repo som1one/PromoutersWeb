@@ -26,6 +26,18 @@ class RouteCommandHandler:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _find_promoter(self, user_id: int) -> "User | None":
+        """Look up promoter by VK user_id (checks both vk_id and tg_id fields)."""
+        promoter = self.db.scalar(
+            select(User).where(User.vk_id == str(user_id))
+        )
+        if promoter is None:
+            # Fallback: VK ID stored in tg_id field (legacy registration form)
+            promoter = self.db.scalar(
+                select(User).where(User.tg_id == user_id)
+            )
+        return promoter
+
     def handle_start_shift(self, user_id: int, geo: dict | None) -> str:
         """Process 'В работе' command.
 
@@ -40,9 +52,7 @@ class RouteCommandHandler:
             Confirmation message or error description.
         """
         # Look up promoter by VK user_id
-        promoter = self.db.scalar(
-            select(User).where(User.vk_id == str(user_id))
-        )
+        promoter = self._find_promoter(user_id)
         if promoter is None:
             return "Пользователь не найден в системе."
 
@@ -109,9 +119,7 @@ class RouteCommandHandler:
             Completion message with time/amount, or error description.
         """
         # Look up promoter by VK user_id
-        promoter = self.db.scalar(
-            select(User).where(User.vk_id == str(user_id))
-        )
+        promoter = self._find_promoter(user_id)
         if promoter is None:
             return "Пользователь не найден в системе."
 
@@ -248,9 +256,7 @@ class RouteCommandHandler:
         self.db.flush()
 
         # Look up promoter for the payout calculation
-        promoter = self.db.scalar(
-            select(User).where(User.vk_id == str(user_id))
-        )
+        promoter = self._find_promoter(user_id)
 
         # Calculate payout
         payout = calculate_payout_for_route(
