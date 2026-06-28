@@ -244,8 +244,11 @@ class VKBot:
             kb.add_button("🏙 Добавить город", color=VkKeyboardColor.POSITIVE)
             kb.add_line()
             kb.add_button("⚙️ Админ-панель", color=VkKeyboardColor.NEGATIVE)
+        elif role == "promoter":
+            kb.add_button("🚀 В работе", color=VkKeyboardColor.POSITIVE)
+            kb.add_button("🏁 Завершить", color=VkKeyboardColor.NEGATIVE)
         else:
-            # Для остальных ролей (master, user и т.д.) - только заявки
+            # Для остальных ролей (user и т.д.) - только заявки
             kb.add_button("📋 Мои заявки", color=None)
 
         return kb
