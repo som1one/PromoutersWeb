@@ -412,7 +412,7 @@ class VKBot:
             # Check if user is awaiting leaflet count input
             if RouteCommandHandler._awaiting_leaflet.get(user_id):
                 try:
-                    db = PromoSessionLocal()
+                    db = get_session()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_leaflet_count(user_id, text)
                     self.send_message(user_id, response)
@@ -425,7 +425,7 @@ class VKBot:
             # "В работе" command - start shift
             if "в работе" in text_lower_route:
                 try:
-                    db = PromoSessionLocal()
+                    db = get_session()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_start_shift(user_id, geo)
                     self.send_message(user_id, response)
@@ -439,7 +439,7 @@ class VKBot:
             # "Завершить" command - finish shift
             if "завершить" in text_lower_route:
                 try:
-                    db = PromoSessionLocal()
+                    db = get_session()
                     handler = RouteCommandHandler(db=db)
                     response = handler.handle_finish_shift(user_id, geo)
                     self.send_message(user_id, response)
