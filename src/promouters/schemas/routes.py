@@ -47,6 +47,7 @@ class RouteCreate(BaseModel):
     planned_end_at: datetime | None = None
     branch_id: UUID
     payout_rate_id: UUID | None = None
+    promoter_id: UUID | None = None
     points: list[RoutePointInput] = Field(min_length=2)
 
 

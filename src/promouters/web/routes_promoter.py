@@ -184,6 +184,7 @@ async def route_create_submit(
     work_date: str = Form(...),
     branch_id: str = Form(...),
     payout_rate_id: str = Form(default=""),
+    promoter_id: str = Form(default=""),
     points_json: str = Form(default="[]"),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -220,6 +221,7 @@ async def route_create_submit(
             planned_end_at=None,
             branch_id=UUID(branch_id),
             payout_rate_id=UUID(payout_rate_id) if payout_rate_id else None,
+            promoter_id=UUID(promoter_id) if promoter_id else None,
             points=points,
         )
         new_route = svc.create_route(db, user, payload, settings, request=request)

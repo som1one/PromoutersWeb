@@ -497,9 +497,9 @@ def create_route(
         work_date=payload.work_date,
         planned_start_at=payload.planned_start_at,
         planned_end_at=payload.planned_end_at,
-        status=RouteStatus.DRAFT,
+        status=RouteStatus.ASSIGNED if payload.promoter_id else RouteStatus.DRAFT,
         branch_id=payload.branch_id,
-        promoter_id=None,
+        promoter_id=payload.promoter_id,
         created_by_id=actor_user.id,
         payout_rate_id=payload.payout_rate_id,
     )
