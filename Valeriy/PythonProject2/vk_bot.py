@@ -431,7 +431,7 @@ class VKBot:
                     self.send_message(user_id, response)
                 except Exception as e:
                     logger.exception("Ошибка старта смены (user_id=%s): %s", user_id, e)
-                    self.send_message(user_id, "Произошла ошибка при старте смены. Попробуйте позже.")
+                    self.send_message(user_id, f"Ошибка старта смены: {type(e).__name__}: {e}")
                 finally:
                     db.close()
                 return
