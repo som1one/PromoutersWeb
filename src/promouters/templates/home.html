@@ -34,7 +34,7 @@
       <a href="/admin/orders/create" class="btn btn-secondary">➕ Новая заявка</a>
     {% endif %}
     {% if role in ['owner','branch_manager','ad_director'] %}
-      <a href="/admin/routes" class="btn">🗺 Маршруты</a>
+      {# <a href="/admin/routes" class="btn">🗺 Маршруты</a> #}
     {% endif %}
     {% if role in ['owner','branch_manager','master'] %}
       <a href="/admin/master-requests" class="btn btn-secondary">🔧 Заявки мастера</a>
