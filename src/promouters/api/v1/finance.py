@@ -8,6 +8,7 @@ from promouters.db.session import get_db
 from promouters.models.enums import PayoutStatus
 from promouters.models.users import User
 from promouters.schemas.finance import (
+    PayoutCreate,
     PayoutListFilters,
     PayoutListResponse,
     PayoutRateCreate,
@@ -19,6 +20,7 @@ from promouters.schemas.finance import (
 from promouters.services.finance import (
     approve_and_pay_payout,
     approve_payout,
+    create_manual_payout,
     create_payout_rate,
     get_payout_or_404,
     get_payout_rate_or_404,
@@ -63,6 +65,18 @@ def update_payout_rate_endpoint(
 ) -> PayoutRateRead:
     payout_rate = get_payout_rate_or_404(db, payout_rate_id)
     return to_payout_rate_read(update_payout_rate(db, current_user, payout_rate, payload, request=request))
+
+
+@router.post("/payouts", response_model=PayoutRead, status_code=status.HTTP_201_CREATED)
+def create_payout_endpoint(
+    payload: PayoutCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PayoutRead:
+    """Manually create a payout (settlement) for a promoter."""
+    payout = create_manual_payout(db, current_user, payload, request=request)
+    return to_payout_read(payout)
 
 
 @router.get("/payouts", response_model=PayoutListResponse)

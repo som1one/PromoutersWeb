@@ -5,8 +5,9 @@ import { fetchSettlements } from "@/lib/api/settlements";
 import { getUser } from "@/lib/auth";
 import SettlementsTable from "@/components/admin/SettlementsTable";
 import SettlementFilters from "@/components/admin/SettlementFilters";
+import CreateSettlementModal from "@/components/admin/CreateSettlementModal";
 import { Loader, ErrorState } from "@/components/ui/State";
-import { Calculator, ChevronLeft, ChevronRight, FileX2 } from "lucide-react";
+import { Calculator, ChevronLeft, ChevronRight, FileX2, Plus } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
@@ -18,6 +19,7 @@ export default function AdminSettlementsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState({ status: null, search: "" });
   const [userRole, setUserRole] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     const user = getUser();
@@ -104,9 +106,18 @@ export default function AdminSettlementsPage() {
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Расчёты</h1>
-          <p className="text-slate-400 text-lg">Управление выплатами промоутерам</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Расчёты</h1>
+            <p className="text-slate-400 text-lg">Управление выплатами промоутерам</p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Новый расчёт
+          </button>
         </div>
 
         {/* Filters */}
@@ -174,6 +185,15 @@ export default function AdminSettlementsPage() {
           )}
         </div>
       </div>
+
+      <CreateSettlementModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          handleRefresh();
+        }}
+      />
     </main>
   );
 }

@@ -45,7 +45,7 @@ class PayoutRate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class Payout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "payouts"
 
-    route_id: Mapped[str] = mapped_column(ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    route_id: Mapped[str | None] = mapped_column(ForeignKey("routes.id", ondelete="CASCADE"), nullable=True)
     session_id: Mapped[str | None] = mapped_column(
         ForeignKey("promoter_sessions.id", ondelete="SET NULL"),
         nullable=True,

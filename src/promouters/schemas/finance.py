@@ -82,9 +82,9 @@ class PayoutRateRead(BaseModel):
 
 class PayoutRead(BaseModel):
     id: UUID
-    route_id: UUID
+    route_id: UUID | None
     route_title: str
-    work_date: date
+    work_date: date | None
     session_id: UUID | None
     promoter_id: UUID
     promoter_name: str
@@ -102,6 +102,23 @@ class PayoutRead(BaseModel):
     calculation_details: dict | None
     created_at: datetime
     updated_at: datetime
+
+
+class PayoutCreate(BaseModel):
+    """Schema for manual payout creation from the settlements page."""
+    promoter_id: UUID
+    rate_type: PayoutRateType
+    amount_per_unit: Decimal = Field(gt=0)
+    units: Decimal = Field(gt=0)
+    notes: str | None = Field(default=None, max_length=500)
+    session_date: date | None = None
+
+    @field_validator("rate_type")
+    @classmethod
+    def validate_rate_type(cls, value: PayoutRateType) -> PayoutRateType:
+        if value not in {PayoutRateType.HOURLY, PayoutRateType.PER_LEAFLET}:
+            raise ValueError("Only hourly and per_leaflet are supported for manual payouts")
+        return value
 
 
 class PayoutListFilters(BaseModel):

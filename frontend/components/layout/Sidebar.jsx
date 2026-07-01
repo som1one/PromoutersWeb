@@ -14,12 +14,12 @@ const NAV_ITEMS = [
     label: "Заявки",
     icon: ClipboardList,
   },
-  {
-    href: "/admin/routes",
-    label: "Маршруты",
-    icon: MapPin,
-    roles: MANAGER_ROLES,
-  },
+  // {
+  //   href: "/admin/routes",
+  //   label: "Маршруты",
+  //   icon: MapPin,
+  //   roles: MANAGER_ROLES,
+  // },
   {
     href: "/admin/settlements",
     label: "Расчёты",

@@ -31,6 +31,29 @@ export async function fetchSettlements({ status, search, page, pageSize } = {}) 
 }
 
 /**
+ * Create a manual settlement (payout) for a promoter.
+ * @param {Object} data
+ * @param {string} data.promoter_id - UUID of the promoter
+ * @param {string} data.rate_type - "hourly" or "per_leaflet"
+ * @param {number} data.amount_per_unit - Rate per unit (₽/hour or ₽/piece)
+ * @param {number} data.units - Number of units (hours or pieces)
+ * @param {string|null} data.notes - Optional notes
+ * @param {string|null} data.session_date - Optional date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Created payout record
+ */
+export async function createSettlement(data) {
+  return apiClient.post("/api/v1/payouts", data);
+}
+
+/**
+ * Fetch list of promoters (users) for selection in settlement creation.
+ * @returns {Promise<Array>} List of user records
+ */
+export async function fetchPromoters() {
+  return apiClient.get("/api/v1/users?limit=500");
+}
+
+/**
  * Approve and pay a settlement in one action (CALCULATED → APPROVED → PAID).
  * @param {string} payoutId - UUID of the payout
  * @returns {Promise<Object>} Updated payout record

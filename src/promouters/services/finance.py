@@ -14,6 +14,7 @@ from promouters.models.finance import Payout, PayoutRate
 from promouters.models.routing import PromoterSession, Route
 from promouters.models.users import Branch, Role, User
 from promouters.schemas.finance import (
+    PayoutCreate,
     PayoutListFilters,
     PayoutListResponse,
     PayoutRateCreate,
@@ -135,7 +136,7 @@ def to_payout_read(payout: Payout) -> PayoutRead:
         id=payout.id,
         route_id=payout.route_id,
         route_title=route.title if route else "",
-        work_date=route.work_date if route else datetime.now(UTC).date(),
+        work_date=route.work_date if route else None,
         session_id=payout.session_id,
         promoter_id=payout.promoter_id,
         promoter_name=_full_name(payout.promoter),
@@ -290,7 +291,14 @@ def _build_payouts_query(
     if role_code == RoleCode.OWNER:
         pass
     elif role_code in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR}:
-        stmt = stmt.where(Payout.route.has(Route.branch_id == require_branch_assignment(actor_user)))
+        branch_id_val = require_branch_assignment(actor_user)
+        # Include route-linked payouts for same branch AND manual payouts (route_id is None)
+        stmt = stmt.where(
+            or_(
+                Payout.route.has(Route.branch_id == branch_id_val),
+                Payout.route_id.is_(None),
+            )
+        )
     elif role_code == RoleCode.PROMOTER:
         stmt = stmt.where(Payout.promoter_id == actor_user.id)
     else:
@@ -334,10 +342,11 @@ def list_payouts_for_actor(
     # Join Route for ORDER BY on work_date.
     # joinedload in payout_query() uses aliased joins for loading,
     # so this explicit join is only used for ordering/filtering in the WHERE clause.
-    stmt = stmt.join(Route, Payout.route_id == Route.id)
+    # Use outerjoin since manual payouts may have no route.
+    stmt = stmt.outerjoin(Route, Payout.route_id == Route.id)
 
     # Sort by session date (route work_date) descending, then by created_at descending as tiebreaker
-    stmt = stmt.order_by(Route.work_date.desc(), Payout.created_at.desc())
+    stmt = stmt.order_by(Route.work_date.desc().nullslast(), Payout.created_at.desc())
 
     # Count total before pagination
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -504,6 +513,75 @@ def calculate_payout_for_route(
     )
     return calculated
 
+
+def create_manual_payout(
+    db: Session,
+    actor_user: User,
+    payload: PayoutCreate,
+    *,
+    request: Request | None = None,
+) -> Payout:
+    """Create a manual payout (not linked to a route/session)."""
+    require_route_manager(actor_user)
+
+    # Verify promoter exists
+    promoter = db.get(User, payload.promoter_id)
+    if promoter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Promoter not found")
+
+    units = _quantize(payload.units)
+    amount = _quantize(payload.amount_per_unit * units)
+
+    unit_label = "hours" if payload.rate_type == PayoutRateType.HOURLY else "leaflets"
+    details = {
+        "rate_type": payload.rate_type.value,
+        "rate_amount": str(payload.amount_per_unit),
+        "units": str(units),
+        "unit_label": unit_label,
+        "formula": f"{payload.amount_per_unit} * {units}",
+        "manual": True,
+    }
+
+    if payload.rate_type == PayoutRateType.HOURLY:
+        total_minutes = int(units * 60)
+        details["total_minutes"] = total_minutes
+        notes = f"Почасовая: {payload.amount_per_unit} × {units}ч = {amount} ₽"
+    else:
+        details["leaflet_count"] = int(units)
+        notes = f"Поштучная: {payload.amount_per_unit} × {int(units)} шт. = {amount} ₽"
+
+    if payload.notes:
+        notes = f"{notes}. {payload.notes}"
+
+    payout = Payout(
+        route_id=None,
+        session_id=None,
+        promoter_id=str(payload.promoter_id),
+        payout_rate_id=None,
+        amount=amount,
+        currency="RUB",
+        units=units,
+        notes=notes,
+        calculation_details=details,
+        status=PayoutStatus.CALCULATED,
+        calculated_at=datetime.now(UTC),
+    )
+    db.add(payout)
+    db.flush()
+
+    created = get_payout_or_404(db, payout.id)
+    write_audit_log(
+        db,
+        actor_user=actor_user,
+        branch_id=actor_user.branch_id,
+        entity_type="payout",
+        entity_id=str(created.id),
+        action="payout.manual_create",
+        payload={"after": to_payout_read(created).model_dump(mode="json")},
+        request=request,
+    )
+    db.commit()
+    return get_payout_or_404(db, payout.id)
 
 
 def _ensure_can_change_payout(actor_user: User, payout: Payout) -> None:

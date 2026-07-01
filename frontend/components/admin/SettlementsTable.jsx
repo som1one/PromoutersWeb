@@ -18,6 +18,25 @@ function formatDate(dateStr) {
 }
 
 /**
+ * Format rate type for display.
+ * @param {object} settlement - Settlement record
+ * @returns {string} Formatted rate type
+ */
+function formatRateType(settlement) {
+  const rateType = settlement.calculation_details?.rate_type || settlement.payout_rate_type || settlement.rate_type;
+  switch (rateType) {
+    case "hourly":
+      return "Почасовая";
+    case "per_leaflet":
+      return "Поштучно";
+    case "fixed_shift":
+      return "За смену";
+    default:
+      return rateType || "—";
+  }
+}
+
+/**
  * Format quantity based on rate type.
  * For hourly/fixed_shift: "Xч Yмин" (derived from total_minutes)
  * For per_leaflet: "X шт."
@@ -98,7 +117,10 @@ export default function SettlementsTable({
                 ДАТА
               </th>
               <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider">
-                АДРЕС
+                ПРОМОУТЕР
+              </th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider hidden sm:table-cell">
+                ТИП
               </th>
               <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider hidden sm:table-cell">
                 КОЛИЧЕСТВО
@@ -127,7 +149,10 @@ export default function SettlementsTable({
                   {formatDate(settlement.session_date || settlement.calculated_at)}
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 text-white">
-                  {settlement.route_address || settlement.address || "—"}
+                  {settlement.promoter_name || "—"}
+                </td>
+                <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-slate-300 hidden sm:table-cell">
+                  {formatRateType(settlement)}
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-slate-300 hidden sm:table-cell">
                   {formatQuantity(settlement)}
