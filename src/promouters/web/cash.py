@@ -19,6 +19,18 @@ from promouters.web.deps import render, require_roles
 router = APIRouter()
 
 
+def _safe_int(value: str | int | None) -> int | None:
+    if value is None or isinstance(value, int):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
 def _actor_city_id(user: User) -> int | None:
     return None
 
@@ -26,18 +38,19 @@ def _actor_city_id(user: User) -> int | None:
 @router.get("/")
 async def cash_report(
     request: Request,
-    city_id: int | None = None,
+    city_id: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "director")),
 ):
+    resolved_city_id = _safe_int(city_id)
     now = datetime.now()
     df = datetime.fromisoformat(date_from) if date_from else now.replace(day=1, hour=0, minute=0, second=0)
     dt = datetime.fromisoformat(date_to) if date_to else now.replace(hour=23, minute=59, second=59)
-    report = cash_svc.calculate_cash_income(db, date_from=df, date_to=dt, city_id=city_id)
+    report = cash_svc.calculate_cash_income(db, date_from=df, date_to=dt, city_id=resolved_city_id)
 
-    pending_orders = cash_svc.list_pending_cash_orders(db, city_id=city_id)
+    pending_orders = cash_svc.list_pending_cash_orders(db, city_id=resolved_city_id)
     master_ids = {order.assigned_to for order in pending_orders if order.assigned_to}
     masters_map: dict[int, User] = {}
     if master_ids:
@@ -110,7 +123,7 @@ async def cash_report(
         pending_masters=sorted(grouped_masters.values(), key=lambda item: item["master_name"]),
         masters_map=masters_map,
         order_company_shares=order_company_shares,
-        filter={"city_id": city_id, "date_from": df.date().isoformat(), "date_to": dt.date().isoformat()},
+        filter={"city_id": resolved_city_id, "date_from": df.date().isoformat(), "date_to": dt.date().isoformat()},
         available_cities=cities_svc.list_cities(db),
         flash_success=flash_success,
     )

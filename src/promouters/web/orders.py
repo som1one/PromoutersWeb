@@ -27,6 +27,19 @@ router = APIRouter()
 ORDER_ROLES = ("owner", "director", "dispatcher", "branch_manager", "ad_director")
 
 
+def _safe_int(value: str | int | None) -> int | None:
+    """Parse a query-string value to int; returns None for empty/invalid strings."""
+    if value is None or isinstance(value, int):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
 def _status_badge_class(status: str | None) -> str:
     return {
         "completed": "badge-success",
@@ -201,21 +214,23 @@ def _order_payload_from_form(
 async def orders_list(
     request: Request,
     status: str | None = None,
-    city_id: int | None = None,
+    city_id: str | None = None,
     search: str | None = None,
-    master_id: int | None = None,
+    master_id: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     period: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_ROLES)),
 ):
+    resolved_city_id = _safe_int(city_id)
+    resolved_master_id = _safe_int(master_id)
     start_dt, end_dt = _parse_range(date_from, date_to, period)
     raw_orders = orders_svc.list_orders(
         db,
         status=status,
-        city_id=city_id,
-        assigned_to=master_id,
+        city_id=resolved_city_id,
+        assigned_to=resolved_master_id,
         search=search,
         date_from=start_dt,
         date_to=end_dt,
@@ -244,11 +259,11 @@ async def orders_list(
         can_close=can_close,
         filter={
             "status": status or "",
-            "city_id": city_id,
+            "city_id": resolved_city_id,
             "date_from": start_dt.date().isoformat() if start_dt else "",
             "date_to": end_dt.date().isoformat() if end_dt else "",
             "search": search or "",
-            "master_id": master_id,
+            "master_id": resolved_master_id,
         },
         available_statuses=[{"code": code, "name": name} for code, name in STATUS_NAMES_RU.items()],
         available_cities=cities_svc.list_cities(db),

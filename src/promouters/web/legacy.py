@@ -24,6 +24,19 @@ from promouters.web.deps import clear_auth_cookies, require_roles
 router = APIRouter()
 
 
+def _parse_optional_int(value: str | int | None) -> int | None:
+    """Parse a query-string value to int; returns None for empty/invalid strings."""
+    if value is None or isinstance(value, int):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
 def _xlsx_response(workbook: Workbook, filename: str) -> StreamingResponse:
     output = io.BytesIO()
     workbook.save(output)
@@ -286,14 +299,16 @@ async def export_orders(
 
 @router.get("/stats/export")
 async def export_stats(
-    city_id: int | None = None,
-    master_id: int | None = None,
+    city_id: str | None = None,
+    master_id: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
     period: str = "month",
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "director", "dispatcher", "branch_manager", "ad_director")),
 ):
+    resolved_city_id = _parse_optional_int(city_id)
+    resolved_master_id = _parse_optional_int(master_id)
     if date_from and date_to:
         start_dt = datetime.fromisoformat(date_from).replace(hour=0, minute=0, second=0, microsecond=0)
         end_dt = datetime.fromisoformat(date_to).replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -304,8 +319,8 @@ async def export_stats(
         db,
         date_from=start_dt,
         date_to=end_dt,
-        city_id=city_id,
-        master_id=master_id,
+        city_id=resolved_city_id,
+        master_id=resolved_master_id,
     )
 
     workbook = Workbook()

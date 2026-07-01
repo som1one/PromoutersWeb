@@ -14,21 +14,35 @@ from promouters.web.deps import render, require_roles
 router = APIRouter()
 
 
+def _safe_int(value: str | int | None) -> int | None:
+    if value is None or isinstance(value, int):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
 @router.get("/")
 async def sd_view(
     request: Request,
-    master_tg_id: int | None = None,
-    city_id: int | None = None,
+    master_tg_id: str | None = None,
+    city_id: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("owner", "director", "dispatcher")),
 ):
-    report = sd_svc.sd_report(db, master_tg_id=master_tg_id, city_id=city_id)
+    resolved_city_id = _safe_int(city_id)
+    resolved_master_tg_id = _safe_int(master_tg_id)
+    report = sd_svc.sd_report(db, master_tg_id=resolved_master_tg_id, city_id=resolved_city_id)
     return render(
         request,
         "sd.html",
         user=user,
         active_page="sd",
         report=report,
-        filter={"master_tg_id": master_tg_id, "city_id": city_id},
+        filter={"master_tg_id": resolved_master_tg_id, "city_id": resolved_city_id},
         available_cities=cities_svc.list_cities(db),
     )
