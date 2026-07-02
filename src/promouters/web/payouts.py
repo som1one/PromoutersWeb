@@ -50,6 +50,15 @@ async def payouts_list(
     filters = _filters_from_query(promoter_id, status_filter)
     payouts = svc.list_payouts_raw_for_actor(db, user, filters=filters)
     summary = svc.summarize_payouts_by_promoter(payouts)
+
+    # Stats counters
+    total_count = len(payouts)
+    pending_count = sum(1 for p in payouts if p.status == PayoutStatus.CALCULATED)
+    paid_count = sum(1 for p in payouts if p.status == PayoutStatus.PAID)
+    pending_sum = sum(float(p.amount or 0) for p in payouts if p.status == PayoutStatus.CALCULATED)
+    paid_sum = sum(float(p.amount or 0) for p in payouts if p.status == PayoutStatus.PAID)
+    total_sum = sum(float(p.amount or 0) for p in payouts)
+
     return render(
         request,
         "payouts_list.html",
@@ -60,6 +69,14 @@ async def payouts_list(
         promoter_id=promoter_id or "",
         status_filter=status_filter or "",
         statuses=list(PayoutStatus),
+        stats={
+            "total_count": total_count,
+            "pending_count": pending_count,
+            "paid_count": paid_count,
+            "pending_sum": pending_sum,
+            "paid_sum": paid_sum,
+            "total_sum": total_sum,
+        },
     )
 
 
