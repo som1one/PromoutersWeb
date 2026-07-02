@@ -41,6 +41,68 @@
   </div>
 </div>
 
+<!-- Create payout form -->
+{% if is_owner_or_manager %}
+<div class="card card-flat" style="margin-bottom:20px;">
+  <div class="card-header"><h3 class="card-title">➕ Создать расчёт</h3></div>
+  <form method="post" action="/admin/payouts/create">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Промоутер</label>
+        <select name="promoter_id" required>
+          <option value="">— выберите —</option>
+          {% for p in all_promoters %}
+          <option value="{{ p.id }}">{{ p.first_name }} {{ p.last_name }}{% if p.role %} ({{ p.role.code }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Тип оплаты</label>
+        <select name="rate_type" required id="payout-rate-type">
+          <option value="hourly">Почасовая</option>
+          <option value="per_leaflet">Поштучно</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="rate-label">Ставка (₽/час)</label>
+        <input type="number" name="amount_per_unit" step="0.01" min="0.01" required placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="units-label">Часы</label>
+        <input type="number" name="units" step="0.01" min="0.01" required placeholder="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Комментарий</label>
+        <input type="text" name="notes" placeholder="необязательно">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="submit">Создать расчёт</button>
+    </div>
+  </form>
+</div>
+<script>
+(function(){
+  var sel = document.getElementById('payout-rate-type');
+  var rateLabel = document.getElementById('rate-label');
+  var unitsLabel = document.getElementById('units-label');
+  function update(){
+    if(sel.value === 'hourly'){
+      rateLabel.textContent = 'Ставка (₽/час)';
+      unitsLabel.textContent = 'Часы';
+    } else {
+      rateLabel.textContent = 'Ставка (₽/шт.)';
+      unitsLabel.textContent = 'Штуки';
+    }
+  }
+  sel.addEventListener('change', update);
+  update();
+})();
+</script>
+{% endif %}
+
 <form method="get" action="/admin/payouts" class="card card-flat">
   <div class="form-row">
     <div class="form-group">

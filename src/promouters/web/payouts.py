@@ -4,16 +4,18 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from promouters.db.session import get_db
-from promouters.models.enums import PayoutStatus
+from promouters.models.enums import PayoutRateType, PayoutStatus
 from promouters.models.users import User
-from promouters.schemas.finance import PayoutListFilters
+from promouters.schemas.finance import PayoutCreate, PayoutListFilters
 from promouters.services import finance as svc
 from promouters.web.deps import render, require_roles
 
@@ -59,6 +61,9 @@ async def payouts_list(
     paid_sum = sum(float(p.amount or 0) for p in payouts if p.status == PayoutStatus.PAID)
     total_sum = sum(float(p.amount or 0) for p in payouts)
 
+    # Get promoters for "create payout" form
+    all_users = list(db.scalars(select(User).order_by(User.first_name, User.last_name)))
+
     return render(
         request,
         "payouts_list.html",
@@ -69,6 +74,7 @@ async def payouts_list(
         promoter_id=promoter_id or "",
         status_filter=status_filter or "",
         statuses=list(PayoutStatus),
+        all_promoters=all_users,
         stats={
             "total_count": total_count,
             "pending_count": pending_count,
@@ -78,6 +84,32 @@ async def payouts_list(
             "total_sum": total_sum,
         },
     )
+
+
+@router.post("/create")
+async def payout_create(
+    request: Request,
+    promoter_id: str = Form(...),
+    rate_type: str = Form(...),
+    amount_per_unit: str = Form(...),
+    units: str = Form(...),
+    notes: str = Form(default=""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("owner", "branch_manager")),
+):
+    """Create a manual payout from the admin form."""
+    try:
+        payload = PayoutCreate(
+            promoter_id=UUID(promoter_id),
+            rate_type=PayoutRateType(rate_type),
+            amount_per_unit=Decimal(amount_per_unit.strip()),
+            units=Decimal(units.strip()),
+            notes=notes.strip() or None,
+        )
+        svc.create_manual_payout(db, user, payload, request=request)
+    except Exception:  # noqa: BLE001
+        logger.exception("payout.create failed")
+    return RedirectResponse("/admin/payouts", status_code=302)
 
 
 @router.post("/{payout_id}/approve")
