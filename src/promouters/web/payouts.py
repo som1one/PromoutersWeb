@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from promouters.db.session import get_db
 from promouters.models.enums import PayoutRateType, PayoutStatus
-from promouters.models.users import User
+from promouters.models.users import Role, User
 from promouters.schemas.finance import PayoutCreate, PayoutListFilters
 from promouters.services import finance as svc
 from promouters.web.deps import render, require_roles
@@ -61,8 +61,12 @@ async def payouts_list(
     paid_sum = sum(float(p.amount or 0) for p in payouts if p.status == PayoutStatus.PAID)
     total_sum = sum(float(p.amount or 0) for p in payouts)
 
-    # Get promoters for "create payout" form
-    all_users = list(db.scalars(select(User).order_by(User.first_name, User.last_name)))
+    # Get promoters for "create payout" form (only promoter role)
+    all_users = list(db.scalars(
+        select(User)
+        .where(User.role.has(Role.code == "promoter"))
+        .order_by(User.first_name, User.last_name)
+    ))
 
     return render(
         request,
