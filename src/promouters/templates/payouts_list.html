@@ -61,6 +61,7 @@
         <select name="rate_type" required id="payout-rate-type">
           <option value="hourly">Почасовая</option>
           <option value="per_leaflet">Поштучно</option>
+          <option value="fixed_shift">За смену</option>
         </select>
       </div>
       <div class="form-group">
@@ -88,13 +89,23 @@
   var sel = document.getElementById('payout-rate-type');
   var rateLabel = document.getElementById('rate-label');
   var unitsLabel = document.getElementById('units-label');
+  var unitsInput = document.querySelector('input[name="units"]');
   function update(){
     if(sel.value === 'hourly'){
       rateLabel.textContent = 'Ставка (₽/час)';
       unitsLabel.textContent = 'Часы';
+      unitsInput.value = '';
+      unitsInput.placeholder = '0';
+    } else if(sel.value === 'fixed_shift'){
+      rateLabel.textContent = 'Сумма за смену (₽)';
+      unitsLabel.textContent = 'Смен';
+      unitsInput.value = '1';
+      unitsInput.placeholder = '1';
     } else {
       rateLabel.textContent = 'Ставка (₽/шт.)';
       unitsLabel.textContent = 'Штуки';
+      unitsInput.value = '';
+      unitsInput.placeholder = '0';
     }
   }
   sel.addEventListener('change', update);
