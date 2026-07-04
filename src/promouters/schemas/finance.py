@@ -96,6 +96,11 @@ class PayoutRead(BaseModel):
     units: Decimal | None
     notes: str | None
     status: str
+    payment_proof_path: str | None = None
+    payment_proof_url: str | None = None
+    promoter_phone: str | None = None
+    promoter_bank: str | None = None
+    promoter_card_holder: str | None = None
     calculated_at: datetime | None
     approved_at: datetime | None
     paid_at: datetime | None
@@ -145,4 +150,23 @@ class PayoutSummaryRead(BaseModel):
     total_amount: Decimal
     currency: str
     payouts: list[PayoutRead]
+
+
+class PromoterPaymentDetailsRead(BaseModel):
+    """Реквизиты промоутера для отображения в интерфейсе."""
+    id: UUID
+    user_id: UUID
+    phone_number: str
+    bank_name: str
+    card_holder_name: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class PromoterPaymentDetailsCreate(BaseModel):
+    """Создание/обновление реквизитов промоутером через бот."""
+    phone_number: str = Field(min_length=10, max_length=32)
+    bank_name: str = Field(min_length=2, max_length=128)
+    card_holder_name: str = Field(min_length=2, max_length=200)
 

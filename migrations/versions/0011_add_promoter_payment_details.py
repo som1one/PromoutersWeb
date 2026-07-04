@@ -1,0 +1,40 @@
+"""Add promoter payment details and payment proof screenshot.
+
+Revision ID: 0011
+Revises: 0010
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+revision = "0011"
+down_revision = "0010"
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    # Promoter payment details (bank requisites)
+    op.create_table(
+        "promoter_payment_details",
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("user_id", sa.String(36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column("phone_number", sa.String(32), nullable=False),
+        sa.Column("bank_name", sa.String(128), nullable=False),
+        sa.Column("card_holder_name", sa.String(200), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    )
+    op.create_index("ix_promoter_payment_details_user_id", "promoter_payment_details", ["user_id"])
+
+    # Payment proof screenshot on payouts
+    op.add_column("payouts", sa.Column("payment_proof_path", sa.String(500), nullable=True))
+    op.add_column("payouts", sa.Column("paid_by_id", sa.String(36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True))
+
+
+def downgrade() -> None:
+    op.drop_column("payouts", "paid_by_id")
+    op.drop_column("payouts", "payment_proof_path")
+    op.drop_index("ix_promoter_payment_details_user_id", table_name="promoter_payment_details")
+    op.drop_table("promoter_payment_details")

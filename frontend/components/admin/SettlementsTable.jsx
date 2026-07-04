@@ -119,6 +119,9 @@ export default function SettlementsTable({
               <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider">
                 ПРОМОУТЕР
               </th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider hidden md:table-cell">
+                РЕКВИЗИТЫ
+              </th>
               <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold uppercase text-slate-400 tracking-wider hidden sm:table-cell">
                 ТИП
               </th>
@@ -150,6 +153,30 @@ export default function SettlementsTable({
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 text-white">
                   {settlement.promoter_name || "—"}
+                </td>
+                <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-300 hidden md:table-cell">
+                  {settlement.promoter_phone ? (
+                    <div className="text-xs space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-500">📱</span>
+                        <span>{settlement.promoter_phone}</span>
+                      </div>
+                      {settlement.promoter_bank && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">🏦</span>
+                          <span>{settlement.promoter_bank}</span>
+                        </div>
+                      )}
+                      {settlement.promoter_card_holder && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500">👤</span>
+                          <span>{settlement.promoter_card_holder}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-slate-500 text-xs">Не указаны</span>
+                  )}
                 </td>
                 <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-slate-300 hidden sm:table-cell">
                   {formatRateType(settlement)}

@@ -55,18 +55,26 @@ export async function fetchPromoters() {
 
 /**
  * Approve and pay a settlement in one action (CALCULATED → APPROVED → PAID).
+ * Requires payment proof screenshot file.
  * @param {string} payoutId - UUID of the payout
+ * @param {File} proofFile - Screenshot of the bank transfer
  * @returns {Promise<Object>} Updated payout record
  */
-export async function approveAndPaySettlement(payoutId) {
-  return apiClient.post(`/api/v1/payouts/${payoutId}/approve-and-pay`);
+export async function approveAndPaySettlement(payoutId, proofFile) {
+  const formData = new FormData();
+  formData.append("file", proofFile);
+  return apiClient.postForm(`/api/v1/payouts/${payoutId}/approve-and-pay`, formData);
 }
 
 /**
  * Mark an approved settlement as paid (APPROVED → PAID).
+ * Requires payment proof screenshot file.
  * @param {string} payoutId - UUID of the payout
+ * @param {File} proofFile - Screenshot of the bank transfer
  * @returns {Promise<Object>} Updated payout record
  */
-export async function paySettlement(payoutId) {
-  return apiClient.post(`/api/v1/payouts/${payoutId}/pay`);
+export async function paySettlement(payoutId, proofFile) {
+  const formData = new FormData();
+  formData.append("file", proofFile);
+  return apiClient.postForm(`/api/v1/payouts/${payoutId}/pay`, formData);
 }

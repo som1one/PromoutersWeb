@@ -56,11 +56,13 @@ class Payout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
     )
     approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    paid_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="RUB", nullable=False)
     units: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     calculation_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payment_proof_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[PayoutStatus] = mapped_column(
         Enum(PayoutStatus, name="payout_status_enum", values_callable=lambda enum_cls: [item.value for item in enum_cls]),
         default=PayoutStatus.DRAFT,
@@ -78,6 +80,26 @@ class Payout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="approved_payouts",
         foreign_keys=[approved_by_id],
     )
+    paid_by: Mapped["User | None"] = relationship(
+        foreign_keys=[paid_by_id],
+    )
+
+
+class PromoterPaymentDetails(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Реквизиты промоутера для выплат (номер телефона, банк, имя на карте)."""
+    __tablename__ = "promoter_payment_details"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    phone_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    bank_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    card_holder_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
 
 
 class ExpensePlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):

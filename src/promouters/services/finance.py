@@ -10,7 +10,7 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from promouters.models.enums import PayoutRateType, PayoutStatus, RoleCode, RouteStatus
-from promouters.models.finance import Payout, PayoutRate
+from promouters.models.finance import Payout, PayoutRate, PromoterPaymentDetails
 from promouters.models.routing import PromoterSession, Route
 from promouters.models.users import Branch, Role, User
 from promouters.schemas.finance import (
@@ -22,6 +22,8 @@ from promouters.schemas.finance import (
     PayoutRateUpdate,
     PayoutRead,
     PayoutSummaryRead,
+    PromoterPaymentDetailsCreate,
+    PromoterPaymentDetailsRead,
 )
 from promouters.services.access import (
     ensure_same_branch,
@@ -66,6 +68,7 @@ def payout_query() -> Select[tuple[Payout]]:
             joinedload(Payout.route).joinedload(Route.payout_rate),
             joinedload(Payout.route).joinedload(Route.promoter),
             joinedload(Payout.promoter).joinedload(User.branch),
+            joinedload(Payout.promoter).joinedload(User.payment_details_rel),
             joinedload(Payout.payout_rate),
             joinedload(Payout.session),
         )
@@ -132,6 +135,25 @@ def to_payout_rate_read(payout_rate: PayoutRate) -> PayoutRateRead:
 def to_payout_read(payout: Payout) -> PayoutRead:
     route = payout.route
     payout_rate = payout.payout_rate or (route.payout_rate if route else None)
+
+    # Load promoter payment details for display
+    promoter_phone = None
+    promoter_bank = None
+    promoter_card_holder = None
+    if payout.promoter and hasattr(payout.promoter, "payment_details_rel"):
+        pd = payout.promoter.payment_details_rel
+        if pd and pd.is_active:
+            promoter_phone = pd.phone_number
+            promoter_bank = pd.bank_name
+            promoter_card_holder = pd.card_holder_name
+
+    # Build payment proof URL
+    payment_proof_url = None
+    if payout.payment_proof_path:
+        from promouters.core.config import get_settings
+        settings = get_settings()
+        payment_proof_url = f"{settings.media_url}/{payout.payment_proof_path}"
+
     return PayoutRead(
         id=payout.id,
         route_id=payout.route_id,
@@ -148,6 +170,11 @@ def to_payout_read(payout: Payout) -> PayoutRead:
         units=payout.units,
         notes=payout.notes,
         status=payout.status.value,
+        payment_proof_path=payout.payment_proof_path,
+        payment_proof_url=payment_proof_url,
+        promoter_phone=promoter_phone,
+        promoter_bank=promoter_bank,
+        promoter_card_holder=promoter_card_holder,
         calculated_at=payout.calculated_at,
         approved_at=payout.approved_at,
         paid_at=payout.paid_at,
@@ -585,11 +612,11 @@ def create_manual_payout(
 
 
 def _ensure_can_change_payout(actor_user: User, payout: Payout) -> None:
-    """Только owner и branch_manager своего филиала могут менять статусы выплат."""
+    """Owner, branch_manager и ad_director своего филиала могут менять статусы выплат."""
     if is_owner(actor_user):
         return
     role_code = get_role_code(actor_user)
-    if role_code not in {RoleCode.BRANCH_MANAGER}:
+    if role_code not in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     branch_id = payout.route.branch_id if payout.route else None
     if branch_id is None or branch_id != require_branch_assignment(actor_user):
@@ -637,18 +664,26 @@ def mark_payout_paid(
     actor_user: User,
     payout: Payout,
     *,
+    payment_proof_path: str | None = None,
     request: Request | None = None,
 ) -> Payout:
-    """APPROVED -> PAID."""
+    """APPROVED -> PAID. Requires payment_proof_path (screenshot of transfer)."""
     _ensure_can_change_payout(actor_user, payout)
     if payout.status != PayoutStatus.APPROVED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Mark paid allowed only for APPROVED, got {payout.status.value}",
         )
+    if not payment_proof_path:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Скриншот перевода обязателен для подтверждения выплаты",
+        )
     before = to_payout_read(payout).model_dump(mode="json")
     payout.status = PayoutStatus.PAID
     payout.paid_at = datetime.now(UTC)
+    payout.paid_by_id = actor_user.id
+    payout.payment_proof_path = payment_proof_path
     db.add(payout)
     db.flush()
 
@@ -672,14 +707,20 @@ def approve_and_pay_payout(
     actor_user: User,
     payout: Payout,
     *,
+    payment_proof_path: str | None = None,
     request: Request | None = None,
 ) -> Payout:
-    """CALCULATED -> APPROVED -> PAID in a single transaction."""
+    """CALCULATED -> APPROVED -> PAID in a single transaction. Requires payment proof screenshot."""
     _ensure_can_change_payout(actor_user, payout)
     if payout.status != PayoutStatus.CALCULATED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Approve-and-pay allowed only for CALCULATED, got {payout.status.value}",
+        )
+    if not payment_proof_path:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Скриншот перевода обязателен для подтверждения выплаты",
         )
     before = to_payout_read(payout).model_dump(mode="json")
     now = datetime.now(UTC)
@@ -687,6 +728,8 @@ def approve_and_pay_payout(
     payout.approved_at = now
     payout.approved_by_id = actor_user.id
     payout.paid_at = now
+    payout.paid_by_id = actor_user.id
+    payout.payment_proof_path = payment_proof_path
     db.add(payout)
     db.flush()
 
@@ -734,3 +777,85 @@ def cancel_payout(
     )
     db.commit()
     return get_payout_or_404(db, payout.id)
+
+
+# --- Promoter Payment Details ---
+
+
+def get_payment_details_for_user(db: Session, user_id: UUID | str) -> PromoterPaymentDetails | None:
+    """Get active payment details for a promoter."""
+    return db.scalar(
+        select(PromoterPaymentDetails).where(
+            PromoterPaymentDetails.user_id == str(user_id),
+            PromoterPaymentDetails.is_active.is_(True),
+        )
+    )
+
+
+def upsert_payment_details(
+    db: Session,
+    user_id: UUID | str,
+    payload: PromoterPaymentDetailsCreate,
+) -> PromoterPaymentDetails:
+    """Create or update promoter payment details."""
+    existing = db.scalar(
+        select(PromoterPaymentDetails).where(PromoterPaymentDetails.user_id == str(user_id))
+    )
+    if existing:
+        existing.phone_number = payload.phone_number.strip()
+        existing.bank_name = payload.bank_name.strip()
+        existing.card_holder_name = payload.card_holder_name.strip()
+        existing.is_active = True
+        db.add(existing)
+    else:
+        existing = PromoterPaymentDetails(
+            user_id=str(user_id),
+            phone_number=payload.phone_number.strip(),
+            bank_name=payload.bank_name.strip(),
+            card_holder_name=payload.card_holder_name.strip(),
+            is_active=True,
+        )
+        db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+def to_payment_details_read(pd: PromoterPaymentDetails) -> PromoterPaymentDetailsRead:
+    return PromoterPaymentDetailsRead(
+        id=pd.id,
+        user_id=pd.user_id,
+        phone_number=pd.phone_number,
+        bank_name=pd.bank_name,
+        card_holder_name=pd.card_holder_name,
+        is_active=pd.is_active,
+        created_at=pd.created_at,
+        updated_at=pd.updated_at,
+    )
+
+
+def save_payment_proof_file(
+    file_content: bytes,
+    filename: str,
+    payout_id: UUID | str,
+) -> str:
+    """Save payment proof screenshot to disk, return relative path."""
+    import os
+    from pathlib import Path
+
+    from promouters.core.config import get_settings
+    settings = get_settings()
+
+    # Create directory for payment proofs
+    proof_dir = Path(settings.media_root) / "payment_proofs"
+    proof_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    ext = Path(filename).suffix.lower() or ".png"
+    safe_name = f"{payout_id}{ext}"
+    file_path = proof_dir / safe_name
+
+    file_path.write_bytes(file_content)
+
+    # Return relative path from media root
+    return f"payment_proofs/{safe_name}"

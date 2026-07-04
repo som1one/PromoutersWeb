@@ -143,3 +143,8 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     master_geo_pings: Mapped[list["MasterGeoPing"]] = relationship(
         back_populates="master"
     )
+    payment_details_rel: Mapped["PromoterPaymentDetails | None"] = relationship(
+        "PromoterPaymentDetails",
+        foreign_keys="PromoterPaymentDetails.user_id",
+        uselist=False,
+    )

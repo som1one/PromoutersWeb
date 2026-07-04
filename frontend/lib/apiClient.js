@@ -10,11 +10,15 @@ class ApiClient {
     const token = getToken();
     
     const headers = {
-      'Content-Type': 'application/json',
       ...options.headers,
     };
 
-    if (token) {
+    // Only set Content-Type to JSON if body is not FormData
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    }
+
+    if (token && !headers['Authorization']) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
@@ -129,6 +133,24 @@ class ApiClient {
 
   delete(url) {
     return this.request(url, { method: 'DELETE' });
+  }
+
+  /**
+   * POST with FormData (for file uploads). Does NOT set Content-Type header
+   * so the browser can set the multipart boundary automatically.
+   */
+  postForm(url, formData) {
+    const token = getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Do NOT set Content-Type — browser will set it with boundary for FormData
+    return this.request(url, {
+      method: 'POST',
+      body: formData,
+      headers,
+    });
   }
 }
 

@@ -10,18 +10,22 @@ from promouters.integrations.vk_bot.reminders import send_photo_report_reminder
 from promouters.models.enums import PayoutRateType, PromoterSessionStatus, RouteStatus
 from promouters.models.routing import PromoterSession, Route
 from promouters.models.users import User
-from promouters.services.finance import calculate_payout_for_route
+from promouters.services.finance import calculate_payout_for_route, get_payment_details_for_user, upsert_payment_details
+from promouters.schemas.finance import PromoterPaymentDetailsCreate
 
 
 class RouteCommandHandler:
     """Handles route-related commands from VK bot.
 
     Processes shift management commands: starting a shift, finishing a shift,
-    and entering leaflet count for per-unit rate type.
+    entering leaflet count for per-unit rate type, and collecting payment details.
     """
 
     # Class-level dict tracking promoters awaiting leaflet input
     _awaiting_leaflet: dict[int, PromoterSession] = {}
+    # Class-level dict tracking promoters in payment details collection flow
+    # Format: {user_id: {"step": "confirm"|"phone"|"bank"|"name", "data": {...}}}
+    _awaiting_payment_details: dict[int, dict] = {}
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -201,7 +205,12 @@ class RouteCommandHandler:
 
         if payout is not None:
             amount = payout.amount
-            return f"Смена завершена. Время: {hours}ч {minutes}мін. Сумма: {amount} ₽"
+            result_msg = f"Смена завершена.\nВы отработали: {hours}ч {minutes}мин.\nК выплате: {amount} ₽"
+            # Start payment details collection flow
+            payment_msg = self._start_payment_details_flow(user_id, promoter)
+            if payment_msg:
+                result_msg += f"\n\n{payment_msg}"
+            return result_msg
         else:
             # Payout calculation returned None (shouldn't happen if rate is configured, but handle gracefully)
             return "Тариф не настроен, расчёт не выполнен."
@@ -278,6 +287,141 @@ class RouteCommandHandler:
         # Return confirmation message
         if payout is not None:
             amount = payout.amount
-            return f"Расчёт: {amount} ₽ за {count} шт."
+            result_msg = f"Смена завершена.\nРасчёт: {amount} ₽ за {count} шт."
+            # Start payment details collection flow
+            payment_msg = self._start_payment_details_flow(user_id, promoter)
+            if payment_msg:
+                result_msg += f"\n\n{payment_msg}"
+            return result_msg
         else:
             return "Тариф не настроен, расчёт не выполнен."
+
+    def _start_payment_details_flow(self, user_id: int, promoter: User) -> str:
+        """Start payment details collection after payout calculation.
+
+        If promoter already has saved payment details, ask if they're still valid.
+        If not, start collecting from scratch.
+
+        Returns:
+            Message to send to the promoter about payment details.
+        """
+        existing = get_payment_details_for_user(self.db, promoter.id)
+
+        if existing and existing.is_active:
+            # Show existing details and ask for confirmation
+            RouteCommandHandler._awaiting_payment_details[user_id] = {
+                "step": "confirm",
+                "data": {
+                    "phone_number": existing.phone_number,
+                    "bank_name": existing.bank_name,
+                    "card_holder_name": existing.card_holder_name,
+                },
+                "promoter_id": str(promoter.id),
+            }
+            return (
+                f"Реквизиты для выплаты:\n"
+                f"📱 Телефон: {existing.phone_number}\n"
+                f"🏦 Банк: {existing.bank_name}\n"
+                f"👤 Имя: {existing.card_holder_name}\n\n"
+                f"Реквизиты актуальны? (Да / Нет)"
+            )
+        else:
+            # Start collecting new details
+            RouteCommandHandler._awaiting_payment_details[user_id] = {
+                "step": "phone",
+                "data": {},
+                "promoter_id": str(promoter.id),
+            }
+            return "Введите номер телефона для выплаты (СБП):"
+
+    def handle_payment_details_input(self, user_id: int, text: str) -> str | None:
+        """Process payment details input from promoter.
+
+        Handles the multi-step flow:
+        1. confirm — "Да" keeps existing, "Нет" starts new collection
+        2. phone — collect phone number
+        3. bank — collect bank name
+        4. name — collect cardholder name, save to DB
+
+        Args:
+            user_id: VK user ID of the promoter.
+            text: User's text input.
+
+        Returns:
+            Response message, or None if user is not in payment details flow.
+        """
+        if user_id not in RouteCommandHandler._awaiting_payment_details:
+            return None
+
+        state = RouteCommandHandler._awaiting_payment_details[user_id]
+        step = state["step"]
+        cleaned = text.strip()
+
+        if step == "confirm":
+            lower = cleaned.lower()
+            if lower in ("да", "yes", "1", "ок", "ok"):
+                # Details confirmed, done
+                del RouteCommandHandler._awaiting_payment_details[user_id]
+                return "✅ Реквизиты подтверждены. Выплата будет произведена на указанные данные."
+            elif lower in ("нет", "no", "0"):
+                # Start collecting new details
+                state["step"] = "phone"
+                state["data"] = {}
+                return "Введите номер телефона для выплаты (СБП):"
+            else:
+                return "Введите «Да» или «Нет»."
+
+        elif step == "phone":
+            # Validate phone — basic check: 10+ digits
+            digits = "".join(c for c in cleaned if c.isdigit())
+            if len(digits) < 10:
+                return "Введите корректный номер телефона (минимум 10 цифр):"
+            # Normalize to +7 format if starts with 8
+            if digits.startswith("8") and len(digits) == 11:
+                digits = "7" + digits[1:]
+            if not digits.startswith("7"):
+                digits = "7" + digits[-10:]
+            state["data"]["phone_number"] = f"+{digits}"
+            state["step"] = "bank"
+            return "Введите наименование банка (например: Сбер, Тинькофф, Альфа):"
+
+        elif step == "bank":
+            if len(cleaned) < 2:
+                return "Введите наименование банка (минимум 2 символа):"
+            state["data"]["bank_name"] = cleaned
+            state["step"] = "name"
+            return "Введите имя получателя (как на карте):"
+
+        elif step == "name":
+            if len(cleaned) < 2:
+                return "Введите имя получателя (минимум 2 символа):"
+            state["data"]["card_holder_name"] = cleaned
+
+            # Save to database
+            promoter_id = state["promoter_id"]
+            try:
+                payload = PromoterPaymentDetailsCreate(
+                    phone_number=state["data"]["phone_number"],
+                    bank_name=state["data"]["bank_name"],
+                    card_holder_name=state["data"]["card_holder_name"],
+                )
+                upsert_payment_details(self.db, promoter_id, payload)
+            except Exception:
+                del RouteCommandHandler._awaiting_payment_details[user_id]
+                return "❌ Ошибка сохранения реквизитов. Попробуйте позже."
+
+            del RouteCommandHandler._awaiting_payment_details[user_id]
+            return (
+                f"✅ Реквизиты сохранены:\n"
+                f"📱 Телефон: {state['data']['phone_number']}\n"
+                f"🏦 Банк: {state['data']['bank_name']}\n"
+                f"👤 Имя: {state['data']['card_holder_name']}\n\n"
+                f"Выплата будет произведена на указанные данные."
+            )
+
+        return None
+
+    @staticmethod
+    def is_awaiting_payment_details(user_id: int) -> bool:
+        """Check if user is currently in payment details collection flow."""
+        return user_id in RouteCommandHandler._awaiting_payment_details

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from promouters.api.deps import get_current_user
@@ -16,22 +16,28 @@ from promouters.schemas.finance import (
     PayoutRateUpdate,
     PayoutRead,
     PayoutSummaryRead,
+    PromoterPaymentDetailsCreate,
+    PromoterPaymentDetailsRead,
 )
 from promouters.services.finance import (
     approve_and_pay_payout,
     approve_payout,
     create_manual_payout,
     create_payout_rate,
+    get_payment_details_for_user,
     get_payout_or_404,
     get_payout_rate_or_404,
     list_payout_rates_for_actor,
     list_payouts_for_actor,
     list_payouts_raw_for_actor,
     mark_payout_paid,
+    save_payment_proof_file,
     summarize_payouts_by_promoter,
     to_payout_rate_read,
     to_payout_read,
+    to_payment_details_read,
     update_payout_rate,
+    upsert_payment_details,
 )
 
 router = APIRouter(tags=["finance"])
@@ -121,14 +127,19 @@ def get_payout_summary_by_promoter(
 
 
 @router.post("/payouts/{payout_id}/approve-and-pay", response_model=PayoutRead)
-def approve_and_pay_payout_endpoint(
+async def approve_and_pay_payout_endpoint(
     payout_id: UUID,
     request: Request,
+    file: UploadFile = File(..., description="Скриншот перевода (обязательно)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PayoutRead:
+    """Approve and pay in one step. Requires payment proof screenshot."""
     payout = get_payout_or_404(db, payout_id)
-    updated = approve_and_pay_payout(db, current_user, payout, request=request)
+    # Save proof file
+    content = await file.read()
+    proof_path = save_payment_proof_file(content, file.filename or "proof.png", payout_id)
+    updated = approve_and_pay_payout(db, current_user, payout, payment_proof_path=proof_path, request=request)
     return to_payout_read(updated)
 
 
@@ -145,12 +156,57 @@ def approve_payout_endpoint(
 
 
 @router.post("/payouts/{payout_id}/pay", response_model=PayoutRead)
-def mark_payout_paid_endpoint(
+async def mark_payout_paid_endpoint(
     payout_id: UUID,
     request: Request,
+    file: UploadFile = File(..., description="Скриншот перевода (обязательно)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> PayoutRead:
+    """Mark payout as paid. Requires payment proof screenshot."""
     payout = get_payout_or_404(db, payout_id)
-    updated = mark_payout_paid(db, current_user, payout, request=request)
+    content = await file.read()
+    proof_path = save_payment_proof_file(content, file.filename or "proof.png", payout_id)
+    updated = mark_payout_paid(db, current_user, payout, payment_proof_path=proof_path, request=request)
     return to_payout_read(updated)
+
+
+# --- Promoter Payment Details ---
+
+
+@router.get("/payment-details/me", response_model=PromoterPaymentDetailsRead | None)
+def get_my_payment_details(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PromoterPaymentDetailsRead | None:
+    """Get current user's payment details."""
+    pd = get_payment_details_for_user(db, current_user.id)
+    if pd is None:
+        return None
+    return to_payment_details_read(pd)
+
+
+@router.post("/payment-details/me", response_model=PromoterPaymentDetailsRead, status_code=status.HTTP_201_CREATED)
+def set_my_payment_details(
+    payload: PromoterPaymentDetailsCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PromoterPaymentDetailsRead:
+    """Create or update current user's payment details."""
+    pd = upsert_payment_details(db, current_user.id, payload)
+    return to_payment_details_read(pd)
+
+
+@router.get("/payment-details/{user_id}", response_model=PromoterPaymentDetailsRead | None)
+def get_user_payment_details(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PromoterPaymentDetailsRead | None:
+    """Get payment details for a specific promoter (managers only)."""
+    from promouters.services.access import require_route_manager
+    require_route_manager(current_user)
+    pd = get_payment_details_for_user(db, user_id)
+    if pd is None:
+        return None
+    return to_payment_details_read(pd)
