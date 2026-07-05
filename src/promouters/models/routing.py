@@ -94,7 +94,7 @@ class RoutePoint(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class PromoterSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "promoter_sessions"
 
-    route_id: Mapped[str] = mapped_column(ForeignKey("routes.id", ondelete="CASCADE"), nullable=False)
+    route_id: Mapped[str | None] = mapped_column(ForeignKey("routes.id", ondelete="CASCADE"), nullable=True)
     promoter_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
