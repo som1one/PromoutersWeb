@@ -318,14 +318,16 @@ def _build_payouts_query(
     if role_code == RoleCode.OWNER:
         pass
     elif role_code in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR}:
-        branch_id_val = require_branch_assignment(actor_user)
-        # Include route-linked payouts for same branch AND manual payouts (route_id is None)
-        stmt = stmt.where(
-            or_(
-                Payout.route.has(Route.branch_id == branch_id_val),
-                Payout.route_id.is_(None),
+        if actor_user.branch_id:
+            branch_id_val = actor_user.branch_id
+            # Include route-linked payouts for same branch AND manual payouts (route_id is None)
+            stmt = stmt.where(
+                or_(
+                    Payout.route.has(Route.branch_id == branch_id_val),
+                    Payout.route_id.is_(None),
+                )
             )
-        )
+        # If no branch assigned — show all payouts (like owner)
     elif role_code == RoleCode.PROMOTER:
         stmt = stmt.where(Payout.promoter_id == actor_user.id)
     else:
@@ -618,8 +620,11 @@ def _ensure_can_change_payout(actor_user: User, payout: Payout) -> None:
     role_code = get_role_code(actor_user)
     if role_code not in {RoleCode.BRANCH_MANAGER, RoleCode.AD_DIRECTOR}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    # If user has no branch — allow (like owner scope)
+    if not actor_user.branch_id:
+        return
     branch_id = payout.route.branch_id if payout.route else None
-    if branch_id is None or branch_id != require_branch_assignment(actor_user):
+    if branch_id is not None and branch_id != actor_user.branch_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cross-branch payout change is forbidden")
 
 
