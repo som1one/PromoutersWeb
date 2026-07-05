@@ -91,7 +91,7 @@
         <a href="/admin/promoters" class="nav-link {% if active_page == 'promoters' %}active{% endif %}">🧑‍🤝‍🧑 Промоутеры</a>
         {# <a href="/admin/routes" class="nav-link {% if active_page == 'routes' %}active{% endif %}">🗺 Маршруты</a> #}
         <a href="/admin/payouts" class="nav-link {% if active_page == 'payouts' %}active{% endif %}">💰 Расчёты</a>
-        {% if role in ['owner','branch_manager','ad_director','director'] %}
+        {% if role in ['owner','branch_manager','director'] %}
         <a href="/admin/payout-rates" class="nav-link {% if active_page == 'payout_rates' %}active{% endif %}">💲 Тарифы</a>
         {% endif %}
       </div>
