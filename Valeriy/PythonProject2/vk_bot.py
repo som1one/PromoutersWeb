@@ -442,6 +442,20 @@ class VKBot:
                     db.close()
                 return
 
+            # Check if user is awaiting payment details input
+            if RouteCommandHandler.is_awaiting_payment_details(user_id):
+                try:
+                    db = PromoSessionLocal()
+                    handler = RouteCommandHandler(db=db)
+                    response = handler.handle_payment_details_input(user_id, text)
+                    if response:
+                        self.send_message(user_id, response)
+                except Exception as e:
+                    logger.exception("Ошибка ввода реквизитов (user_id=%s): %s", user_id, e)
+                finally:
+                    db.close()
+                return
+
             # "В работе" command - start shift
             if "в работе" in text_lower_route:
                 try:
