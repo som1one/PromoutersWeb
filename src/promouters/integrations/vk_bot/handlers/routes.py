@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import select
@@ -18,6 +18,10 @@ from promouters.schemas.finance import PromoterPaymentDetailsCreate
 
 def _quantize(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+# Moscow timezone (UTC+3)
+MSK = timezone(timedelta(hours=3))
 
 
 class RouteCommandHandler:
@@ -141,7 +145,7 @@ class RouteCommandHandler:
         self.db.add(session)
         self.db.commit()
 
-        start_time = now.strftime("%H:%M")
+        start_time = now.astimezone(MSK).strftime("%H:%M")
         return f"✅ Смена начата в {start_time}"
 
     def handle_finish_shift(self, user_id: int, geo: dict | None) -> str:
