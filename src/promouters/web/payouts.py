@@ -7,7 +7,7 @@ import logging
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 VIEW_ROLES = ("owner", "branch_manager", "ad_director", "director")
+MANAGE_ROLES = ("owner", "branch_manager", "ad_director")
 
 
 def _filters_from_query(promoter_id: str | None, status_filter: str | None) -> PayoutListFilters:
@@ -99,7 +100,7 @@ async def payout_create(
     units: str = Form(...),
     notes: str = Form(default=""),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("owner", "branch_manager")),
+    user: User = Depends(require_roles(*MANAGE_ROLES)),
 ):
     """Create a manual payout from the admin form."""
     try:
@@ -121,7 +122,7 @@ async def payout_approve(
     request: Request,
     payout_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("owner", "branch_manager")),
+    user: User = Depends(require_roles(*MANAGE_ROLES)),
 ):
     payout = svc.get_payout_or_404(db, UUID(payout_id))
     try:
@@ -135,14 +136,36 @@ async def payout_approve(
 async def payout_mark_paid(
     request: Request,
     payout_id: str,
+    proof: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("owner", "branch_manager")),
+    user: User = Depends(require_roles(*MANAGE_ROLES)),
 ):
     payout = svc.get_payout_or_404(db, UUID(payout_id))
     try:
-        svc.mark_payout_paid(db, user, payout, request=request)
+        content = await proof.read()
+        proof_path = svc.save_payment_proof_file(content, proof.filename or "proof.png", payout_id)
+        svc.mark_payout_paid(db, user, payout, payment_proof_path=proof_path, request=request)
     except Exception:  # noqa: BLE001
         logger.exception("payout.mark_paid failed")
+    return RedirectResponse("/admin/payouts", status_code=302)
+
+
+@router.post("/{payout_id}/approve-and-pay")
+async def payout_approve_and_pay(
+    request: Request,
+    payout_id: str,
+    proof: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*MANAGE_ROLES)),
+):
+    """Approve + pay in one step with payment proof screenshot."""
+    payout = svc.get_payout_or_404(db, UUID(payout_id))
+    try:
+        content = await proof.read()
+        proof_path = svc.save_payment_proof_file(content, proof.filename or "proof.png", payout_id)
+        svc.approve_and_pay_payout(db, user, payout, payment_proof_path=proof_path, request=request)
+    except Exception:  # noqa: BLE001
+        logger.exception("payout.approve_and_pay failed")
     return RedirectResponse("/admin/payouts", status_code=302)
 
 
@@ -151,7 +174,7 @@ async def payout_cancel(
     request: Request,
     payout_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles("owner", "branch_manager")),
+    user: User = Depends(require_roles(*MANAGE_ROLES)),
 ):
     payout = svc.get_payout_or_404(db, UUID(payout_id))
     try:

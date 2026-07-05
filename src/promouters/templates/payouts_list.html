@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block page_title %}Выплаты — СУУПР{% endblock %}
 {% block content %}
-{% set is_owner_or_manager = user.role and user.role.code in ['owner','branch_manager'] %}
+{% set is_owner_or_manager = user.role and user.role.code in ['owner','branch_manager','ad_director'] %}
 
 <div class="page-header">
   <div>
@@ -183,19 +183,29 @@
           <td data-label="">
             {% if is_owner_or_manager %}
               {% if p.status.value == 'calculated' %}
-              <form method="post" action="/admin/payouts/{{ p.id }}/approve" style="display:inline;">
-                <button class="btn btn-sm">Одобрить</button>
+              <form method="post" action="/admin/payouts/{{ p.id }}/approve-and-pay" enctype="multipart/form-data" style="display:inline;">
+                <label class="btn btn-sm" style="cursor:pointer;">
+                  📎 Оплатить
+                  <input type="file" name="proof" accept="image/*" required style="display:none;" onchange="this.form.submit();">
+                </label>
               </form>
               {% elif p.status.value == 'approved' %}
-              <form method="post" action="/admin/payouts/{{ p.id }}/paid" style="display:inline;">
-                <button class="btn btn-sm">Отметить выплачено</button>
+              <form method="post" action="/admin/payouts/{{ p.id }}/paid" enctype="multipart/form-data" style="display:inline;">
+                <label class="btn btn-sm" style="cursor:pointer;">
+                  📎 Оплатить
+                  <input type="file" name="proof" accept="image/*" required style="display:none;" onchange="this.form.submit();">
+                </label>
               </form>
+              {% elif p.status.value == 'paid' and p.payment_proof_path %}
+              <a href="/media/{{ p.payment_proof_path }}" target="_blank" class="btn btn-sm btn-ghost">🖼 Скрин</a>
               {% endif %}
               {% if p.status.value not in ['paid','cancelled'] %}
               <form method="post" action="/admin/payouts/{{ p.id }}/cancel" style="display:inline;" onsubmit="return confirm('Отменить выплату?');">
                 <button class="btn btn-sm btn-ghost">Отменить</button>
               </form>
               {% endif %}
+            {% elif p.status.value == 'paid' and p.payment_proof_path %}
+              <a href="/media/{{ p.payment_proof_path }}" target="_blank" class="btn btn-sm btn-ghost">🖼 Скрин</a>
             {% endif %}
           </td>
         </tr>
