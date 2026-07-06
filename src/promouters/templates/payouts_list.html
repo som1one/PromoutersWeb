@@ -163,7 +163,7 @@
       <thead>
         <tr>
           <th>Промоутер</th>
-          <th>Маршрут</th>
+          <th>Реквизиты (СБП)</th>
           <th>Тип</th>
           <th>Единиц</th>
           <th>Сумма</th>
@@ -175,7 +175,17 @@
       {% for p in payouts %}
         <tr>
           <td data-label="Промоутер">{% if p.promoter %}<a href="/admin/promoters/{{ p.promoter.id }}">{{ p.promoter.first_name }} {{ p.promoter.last_name }}</a>{% else %}—{% endif %}</td>
-          <td data-label="Маршрут">{% if p.route %}<a href="/admin/routes/{{ p.route.id }}">{{ p.route.title }}</a>{% else %}—{% endif %}</td>
+          <td data-label="Реквизиты">
+            {% if p.promoter and p.promoter.payment_details_rel and p.promoter.payment_details_rel.is_active %}
+              <div style="font-size:0.8rem;line-height:1.4;">
+                <div>📱 {{ p.promoter.payment_details_rel.phone_number }}</div>
+                <div>🏦 {{ p.promoter.payment_details_rel.bank_name }}</div>
+                <div>👤 {{ p.promoter.payment_details_rel.card_holder_name }}</div>
+              </div>
+            {% else %}
+              <span style="opacity:0.5;font-size:0.8rem;">Не указаны</span>
+            {% endif %}
+          </td>
           <td data-label="Тип">{{ status_label(p.payout_rate.rate_type) if p.payout_rate else '—' }}</td>
           <td data-label="Единиц">{{ p.units or 0 }}</td>
           <td data-label="Сумма"><b>{{ p.amount or 0 }} {{ p.currency }}</b></td>
