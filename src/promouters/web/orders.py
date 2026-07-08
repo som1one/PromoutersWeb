@@ -40,6 +40,15 @@ def _safe_int(value: str | int | None) -> int | None:
         return None
 
 
+def _get_master_by_tg(db: Session, tg_id: int | None) -> User | None:
+    """Look up the assigned master (User) by their tg_id (== VK id)."""
+    if not tg_id:
+        return None
+    from sqlalchemy import select
+
+    return db.scalar(select(User).where(User.tg_id == tg_id))
+
+
 def _status_badge_class(status: str | None) -> str:
     return {
         "completed": "badge-success",
@@ -203,11 +212,18 @@ def _order_payload_from_form(
         "status": status,
         "is_warranty": is_warranty,
     }
-    return {
+    filtered = {
         key: value
         for key, value in payload.items()
         if value is not None and value != ""
     }
+    # ``assigned_to`` несёт явный смысл «снять мастера» (пустое значение =
+    # не назначен): его нужно записывать всегда, иначе снятие мастера молча
+    # теряется. То же для явно выбранного статуса в форме редактирования.
+    filtered["assigned_to"] = parsed_assigned_to
+    if status is not None:
+        filtered["status"] = status
+    return filtered
 
 
 @router.get("/")
@@ -343,37 +359,47 @@ async def order_create_submit(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ORDER_ROLES)),
 ):
-    order = orders_svc.create_order(
-        db,
-        payload=_order_payload_from_form(
-            city_id=city_id,
-            street=street,
-            house=house,
-            flat=flat,
-            time_from=time_from,
-            time_to=time_to,
-            order_date=order_date,
-            equip_type=equip_type,
-            short_desc=short_desc,
-            source=source,
-            client_name=client_name,
-            client_phone=client_phone,
-            assigned_to=assigned_to,
-            sum_amount=sum_amount,
-            sd_price=sd_price,
-            zpch_sum=zpch_sum,
-            comment=comment,
-            is_warranty=is_warranty,
-        ),
-        created_by_tg_id=user.tg_id,
+    payload = _order_payload_from_form(
+        city_id=city_id,
+        street=street,
+        house=house,
+        flat=flat,
+        time_from=time_from,
+        time_to=time_to,
+        order_date=order_date,
+        equip_type=equip_type,
+        short_desc=short_desc,
+        source=source,
+        client_name=client_name,
+        client_phone=client_phone,
+        assigned_to=assigned_to,
+        sum_amount=sum_amount,
+        sd_price=sd_price,
+        zpch_sum=zpch_sum,
+        comment=comment,
+        is_warranty=is_warranty,
     )
+    # Если при создании сразу назначен мастер — заявка становится «Назначена»,
+    # а не «Новая».
+    assigned = payload.get("assigned_to") is not None
+    if assigned and not payload.get("status"):
+        payload["status"] = "assigned"
+
+    order = orders_svc.create_order(db, payload=payload, created_by_tg_id=user.tg_id)
 
     # Notify master via VK if assigned
+    notified = False
     if order.assigned_to:
         from promouters.services.vk_notify import notify_master_new_order
-        notify_master_new_order(order)
+        master = _get_master_by_tg(db, order.assigned_to)
+        notified = notify_master_new_order(order, master)
 
-    return RedirectResponse(f"/admin/orders/{order.id}?created=1", status_code=302)
+    suffix = "created=1"
+    if assigned:
+        suffix += "&assigned=1"
+        if notified:
+            suffix += "&notified=1"
+    return RedirectResponse(f"/admin/orders/{order.id}?{suffix}", status_code=302)
 
 
 @router.get("/{order_id}")
@@ -397,11 +423,28 @@ async def order_detail(
         }
     decorated = _decorate(order, masters_map)
 
+    q = request.query_params
     flash_success = None
-    if request.query_params.get("created"):
-        flash_success = "Заявка создана."
-    elif request.query_params.get("updated"):
-        flash_success = "Заявка обновлена."
+    if q.get("created"):
+        if q.get("assigned"):
+            flash_success = "Заявка создана и назначена мастеру."
+            flash_success += (
+                " Уведомление отправлено мастеру в ВК."
+                if q.get("notified")
+                else " Мастеру не удалось отправить ВК-уведомление (проверьте VK_BOT_TOKEN и VK ID мастера)."
+            )
+        else:
+            flash_success = "Заявка создана."
+    elif q.get("updated"):
+        if q.get("assigned"):
+            flash_success = "Заявка обновлена, мастер назначен."
+            flash_success += (
+                " Уведомление отправлено мастеру в ВК."
+                if q.get("notified")
+                else " Мастеру не удалось отправить ВК-уведомление (проверьте VK_BOT_TOKEN и VK ID мастера)."
+            )
+        else:
+            flash_success = "Заявка обновлена."
 
     return render(
         request,
@@ -474,11 +517,13 @@ async def order_update(
         except ValueError:
             return None
 
+    old_assigned_to = order.assigned_to
+    new_assigned_to = _safe_int(assigned_to)
+
     payload = {
         key: value
         for key, value in {
             "status": status,
-            "assigned_to": _safe_int(assigned_to),
             "sum_amount": _safe_float(sum_amount),
             "sd_price": _safe_float(sd_price),
             "zpch_sum": _safe_float(zpch_sum),
@@ -486,8 +531,28 @@ async def order_update(
         }.items()
         if value is not None and value != ""
     }
+    # ``assigned_to`` пишем всегда: пустое значение снимает мастера (иначе
+    # снятие молча теряется).
+    payload["assigned_to"] = new_assigned_to
+    # Появился мастер там, где его не было, а статус явно не выбран → «Назначена».
+    if new_assigned_to is not None and old_assigned_to is None and not payload.get("status"):
+        payload["status"] = "assigned"
+
     orders_svc.update_order(db, order, payload)
-    return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
+
+    newly_assigned = new_assigned_to is not None and new_assigned_to != old_assigned_to
+    notified = False
+    if newly_assigned:
+        from promouters.services.vk_notify import notify_master_new_order
+        master = _get_master_by_tg(db, new_assigned_to)
+        notified = notify_master_new_order(order, master)
+
+    suffix = "updated=1"
+    if newly_assigned:
+        suffix += "&assigned=1"
+        if notified:
+            suffix += "&notified=1"
+    return RedirectResponse(f"/admin/orders/{order_id}?{suffix}", status_code=302)
 
 
 @router.post("/{order_id}")
@@ -548,11 +613,19 @@ async def order_edit_submit(
     )
 
     # Notify master via VK if assignment changed
-    if order.assigned_to and order.assigned_to != old_assigned_to:
+    newly_assigned = bool(order.assigned_to) and order.assigned_to != old_assigned_to
+    notified = False
+    if newly_assigned:
         from promouters.services.vk_notify import notify_master_new_order
-        notify_master_new_order(order)
+        master = _get_master_by_tg(db, order.assigned_to)
+        notified = notify_master_new_order(order, master)
 
-    return RedirectResponse(f"/admin/orders/{order_id}?updated=1", status_code=302)
+    suffix = "updated=1"
+    if newly_assigned:
+        suffix += "&assigned=1"
+        if notified:
+            suffix += "&notified=1"
+    return RedirectResponse(f"/admin/orders/{order_id}?{suffix}", status_code=302)
 
 
 @router.post("/{order_id}/delete")
