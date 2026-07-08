@@ -15,6 +15,7 @@ from promouters.services.access import (
     can_manage_user,
     ensure_same_branch,
     get_role_code,
+    is_ad_director,
     is_branch_manager,
     is_owner,
     require_branch_assignment,
@@ -85,6 +86,7 @@ def _ensure_unique_fields(
     username: str | None,
     email: str | None,
     phone: str | None,
+    tg_id: int | None = None,
     exclude_user_id: UUID | None = None,
 ) -> str | None:
     normalized_phone = normalize_phone(phone) if phone else None
@@ -100,6 +102,8 @@ def _ensure_unique_fields(
             return "Email is already in use"
         if normalized_phone is not None and user.phone == normalized_phone:
             return "Phone is already in use"
+        if tg_id is not None and user.tg_id == tg_id:
+            return "VK ID (Telegram ID) is already in use"
     return None
 
 
@@ -124,6 +128,16 @@ def _resolve_create_role_and_branch(
     _validate_branch_for_role(role_code=role_code, branch_id=branch_id)
 
     if is_owner(actor_user):
+        return role, branch_id
+
+    # Директор по рекламе может создавать только промоутеров.
+    if is_ad_director(actor_user):
+        if not can_assign_role(actor_user, role_code):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Role assignment is forbidden")
+        # Если у ad_director есть филиал — промоутер создаётся только в нём;
+        # если филиала нет — доверяем выбранному (уже проверенному) филиалу.
+        if actor_user.branch_id is not None:
+            ensure_same_branch(actor_user, branch_id)
         return role, branch_id
 
     if not is_branch_manager(actor_user):
@@ -207,6 +221,7 @@ def create_user(
         username=payload.username,
         email=payload.email,
         phone=payload.phone,
+        tg_id=payload.tg_id,
     )
     if conflict:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=conflict)
@@ -281,6 +296,7 @@ def update_user(
         username=data.get("username"),
         email=data.get("email"),
         phone=data.get("phone"),
+        tg_id=data.get("tg_id"),
         exclude_user_id=user.id,
     )
     if conflict:

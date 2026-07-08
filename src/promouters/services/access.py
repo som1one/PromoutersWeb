@@ -87,6 +87,10 @@ def can_assign_role(actor: User, target_role_code: RoleCode) -> bool:
         return True
     if actor_role_code == RoleCode.BRANCH_MANAGER:
         return target_role_code in MANAGEABLE_ROLE_CODES_BY_BRANCH_MANAGER
+    if actor_role_code == RoleCode.AD_DIRECTOR:
+        # Директор по рекламе может только СОЗДАВАТЬ промоутеров
+        # (редактирование и удаление ему недоступны — отдельными маршрутами).
+        return target_role_code == RoleCode.PROMOTER
     return False
 
 

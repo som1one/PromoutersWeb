@@ -6,9 +6,9 @@
     <h1 class="page-title">Промоутеры</h1>
     <p class="page-subtitle">{% if promoters %}Всего: {{ promoters|length }}{% else %}Пока никого нет в вашем филиале{% endif %}</p>
   </div>
-  {% if user.role and user.role.code == 'owner' %}
+  {% if can_create %}
   <div class="page-actions">
-    <a href="/admin/users/register" class="btn">➕ Создать промоутера</a>
+    <a href="/admin/promoters/new" class="btn">➕ Создать промоутера</a>
   </div>
   {% endif %}
 </div>

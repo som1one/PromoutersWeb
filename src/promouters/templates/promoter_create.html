@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block page_title %}Новый промоутер — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Новый промоутер</h1>
+    <p class="page-subtitle">Заполните данные — логин и пароль создаются автоматически, промоутер работает через ВК-бота</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/promoters" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="/admin/promoters/new" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Имя</label>
+      <input type="text" name="first_name" value="{{ form.first_name or '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Фамилия</label>
+      <input type="text" name="last_name" value="{{ form.last_name or '' }}" required>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">VK ID</label>
+      <input type="number" name="tg_id" value="{{ form.tg_id or '' }}" placeholder="Числовой ID страницы ВКонтакте" required>
+      <small style="opacity:.6">Обязательно — по нему бот узнаёт промоутера.</small>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Телефон <small style="opacity:.6">(необязательно)</small></label>
+      <input type="tel" name="phone" value="{{ form.phone or '' }}">
+    </div>
+  </div>
+
+  <div class="form-row">
+    {% if must_pick_branch %}
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id" required>
+        <option value="">— выберите филиал —</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if form.branch_id and form.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-group">
+      <label class="form-label">Город <small style="opacity:.6">(необязательно)</small></label>
+      <select name="city_id">
+        <option value="">— не выбран —</option>
+        {% for c in cities %}
+        <option value="{{ c.id }}" {% if form.city_id and form.city_id|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">Создать промоутера</button>
+    <a href="/admin/promoters" class="btn btn-ghost">Отмена</a>
+  </div>
+</form>
+{% endblock %}
