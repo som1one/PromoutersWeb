@@ -222,8 +222,8 @@ async def user_register_submit(
         logger.exception("user.create failed")
         db.rollback()
         raw = str(getattr(exc, "detail", None) or exc or "Не удалось создать пользователя")
-        if "uq_users_tg_id" in raw or "already exists" in raw:
-            message = "Пользователь с таким Telegram ID уже существует."
+        if "uq_users_tg_id" in raw or "vk id" in raw.lower() or "telegram" in raw.lower() or "already exists" in raw:
+            message = "Пользователь с таким Telegram ID (VK ID) уже существует."
         elif "uq_users_username" in raw:
             message = "Пользователь с таким логином уже существует."
         elif "uq_users_email" in raw:
@@ -307,10 +307,24 @@ async def user_update(
         users_svc.update_user(db, user, target, payload, request=request)
     except Exception as exc:  # noqa: BLE001
         logger.exception("user.update failed")
+        db.rollback()
+        raw = str(getattr(exc, "detail", None) or exc or "Не удалось сохранить")
+        low = raw.lower()
+        if "vk id" in low or "telegram" in low or "tg_id" in low or "uq_users_tg_id" in low:
+            message = "Пользователь с таким VK ID уже существует."
+        elif "username" in low:
+            message = "Пользователь с таким логином уже существует."
+        elif "email" in low:
+            message = "Пользователь с таким email уже существует."
+        elif "phone" in low:
+            message = "Пользователь с таким телефоном уже существует."
+        elif "must be assigned to a branch" in low:
+            message = "Для этой роли нужно выбрать филиал."
+        else:
+            message = raw
         roles = list(db.scalars(select(Role).order_by(Role.name)))
         branches = list(db.scalars(select(Branch).order_by(Branch.name)))
         cities = list(db.scalars(select(City).order_by(City.name)))
-        message = getattr(exc, "detail", None) or str(exc) or "Не удалось сохранить"
         return render(
             request,
             "user_edit.html",
@@ -320,7 +334,7 @@ async def user_update(
             roles=roles,
             branches=branches,
             cities=cities,
-            flash_error=str(message),
+            flash_error=message,
         )
     return RedirectResponse("/admin/users", status_code=302)
 
