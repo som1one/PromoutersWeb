@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # не сохранит куки и пользователь будет редиректиться на /admin/login.
     web_cookie_secure: bool = False
 
+    # VK bot integration — push-уведомления мастерам о новых/назначенных заявках.
+    # Должен совпадать с токеном сообщества, который использует бот
+    # (Valeriy/PythonProject2). Если не задан — уведомления молча отключаются.
+    vk_bot_token: str | None = None
+    vk_group_id: str | None = None
+
     @computed_field
     @property
     def database_url(self) -> str:
