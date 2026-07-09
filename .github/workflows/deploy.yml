@@ -127,6 +127,19 @@ jobs:
             fi
             grep -q '^WEB_COOKIE_SECURE=' "$APP_DIR/.env" || echo 'WEB_COOKIE_SECURE=false' >> "$APP_DIR/.env"
 
+            echo ">> [bootstrap] VK_BOT_TOKEN/VK_GROUP_ID из env бота -> .env бэкенда (ВК-уведомления мастерам)"
+            # Бэкенд и бот читают РАЗНЫЕ env-файлы. Токен живёт у бота
+            # (Valeriy/PythonProject2/local.env|.env), а бэкенду он нужен, чтобы
+            # слать мастеру уведомление о заявке. Прокидываем идемпотентно.
+            for BOT_ENV in "$APP_DIR/Valeriy/PythonProject2/local.env" "$APP_DIR/Valeriy/PythonProject2/.env"; do
+              [ -f "$BOT_ENV" ] || continue
+              for KEY in VK_BOT_TOKEN VK_GROUP_ID; do
+                if grep -q "^${KEY}=" "$APP_DIR/.env"; then continue; fi
+                VAL=$(grep "^${KEY}=" "$BOT_ENV" | head -1 | cut -d= -f2- || true)
+                if [ -n "$VAL" ]; then echo "${KEY}=${VAL}" >> "$APP_DIR/.env"; fi
+              done
+            done
+
             echo ">> [bootstrap] systemd unit $SERVICE_NAME"
             cat > /etc/systemd/system/$SERVICE_NAME.service <<EOF
             [Unit]
