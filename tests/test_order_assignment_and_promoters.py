@@ -185,6 +185,19 @@ def test_ad_director_can_create_promoter(client, db_session, seed_roles, seed_br
     assert promoter.role.code == RoleCode.PROMOTER.value
     assert promoter.branch_id == seed_branch.id
     assert promoter.status == UserStatus.ACTIVE
+    # VK ID пишется и в vk_id (по нему бот промоутера находит человека в первую очередь).
+    assert promoter.vk_id == "770001"
+
+
+def test_users_search_finds_by_vk_id(client, db_session, seed_roles, seed_branch):
+    owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_search")
+    master = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.MASTER, username="findme_master", tg_id=990123)
+    _login(client, owner)
+
+    resp = client.get("/admin/users?search=990123")
+
+    assert resp.status_code == 200
+    assert "findme_master" in resp.text
 
 
 def test_ad_director_cannot_delete_promoter(client, db_session, seed_roles, seed_branch):
