@@ -174,7 +174,11 @@ async def promoter_create_submit(
             first_name=first_name.strip(),
             last_name=last_name.strip(),
             middle_name=None,
+            # Пишем VK ID и в tg_id (по нему назначаются заявки/уведомления
+            # мастеров), и в vk_id — по нему бот промоутера находит человека
+            # в первую очередь и может ему писать.
             tg_id=parsed_tg_id,
+            vk_id=str(parsed_tg_id),
             status=UserStatus.ACTIVE,
             role_id=role.id,
             branch_id=branch_uuid,

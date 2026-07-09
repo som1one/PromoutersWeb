@@ -87,6 +87,7 @@ def _ensure_unique_fields(
     email: str | None,
     phone: str | None,
     tg_id: int | None = None,
+    vk_id: str | None = None,
     exclude_user_id: UUID | None = None,
 ) -> str | None:
     normalized_phone = normalize_phone(phone) if phone else None
@@ -103,6 +104,8 @@ def _ensure_unique_fields(
         if normalized_phone is not None and user.phone == normalized_phone:
             return "Phone is already in use"
         if tg_id is not None and user.tg_id == tg_id:
+            return "VK ID (Telegram ID) is already in use"
+        if vk_id is not None and user.vk_id == vk_id:
             return "VK ID (Telegram ID) is already in use"
     return None
 
@@ -222,6 +225,7 @@ def create_user(
         email=payload.email,
         phone=payload.phone,
         tg_id=payload.tg_id,
+        vk_id=payload.vk_id,
     )
     if conflict:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=conflict)

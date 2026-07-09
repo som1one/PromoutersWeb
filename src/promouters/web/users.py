@@ -58,15 +58,19 @@ def _filter_users(
     if search:
         s = f"%{search.strip()}%"
         from sqlalchemy import or_
-        stmt = stmt.where(
-            or_(
-                User.first_name.ilike(s),
-                User.last_name.ilike(s),
-                User.username.ilike(s),
-                User.email.ilike(s),
-                User.phone.ilike(s),
-            )
-        )
+        conditions = [
+            User.first_name.ilike(s),
+            User.last_name.ilike(s),
+            User.username.ilike(s),
+            User.email.ilike(s),
+            User.phone.ilike(s),
+            User.vk_id.ilike(s),
+        ]
+        # Поиск по VK ID (хранится числом в tg_id) — чтобы находить, кто занял ID.
+        digits = search.strip()
+        if digits.isdigit():
+            conditions.append(User.tg_id == int(digits))
+        stmt = stmt.where(or_(*conditions))
     return list(db.scalars(stmt))
 
 
