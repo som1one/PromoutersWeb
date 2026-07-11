@@ -4,32 +4,61 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Сервисные документы (СД)</h1>
-    <p class="page-subtitle">Сводка по выданному оборудованию</p>
+    <p class="page-subtitle">Оборудование на руках у мастеров</p>
   </div>
 </div>
 
-<div class="card card-flat">
-  {% if rows %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Мастер</th>
-        <th>Заявок</th>
-        <th>Сумма СД</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for r in rows %}
-      <tr>
-        <td>{{ r.master_name }}</td>
-        <td>{{ r.orders_count }}</td>
-        <td>{{ r.sd_total }} ₽</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty-state">Нет данных</div>
-  {% endif %}
+<div class="card card-flat" style="margin-bottom:16px;">
+  <div class="form-row">
+    <div class="col"><span class="muted">Заявок</span><span>{{ report.totals.count }}</span></div>
+    <div class="col"><span class="muted">Сумма СД</span><span>{{ '%.2f'|format(report.totals.sd_total) }} ₽</span></div>
+    <div class="col"><span class="muted">Запчасти</span><span>{{ '%.2f'|format(report.totals.zpch_total) }} ₽</span></div>
+    <div class="col"><span class="muted">Долг</span><span>{{ '%.2f'|format(report.totals.debt_total) }} ₽</span></div>
+  </div>
 </div>
+
+{% if report.by_master %}
+  {% for master_id, data in report.by_master.items() %}
+  <div class="card card-flat" style="margin-bottom:16px;">
+    <div class="card-header">
+      <h3 class="card-title">👤 {{ data.name }} — {{ data.orders|length }} заявок</h3>
+      <span class="muted">СД: {{ '%.2f'|format(data.sd_total) }} ₽ · Запчасти: {{ '%.2f'|format(data.zpch_total) }} ₽</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table data-table-stack">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Город</th>
+            <th>Адрес</th>
+            <th>Техника</th>
+            <th>Статус</th>
+            <th>СД, ₽</th>
+            <th>ЗПЧ, ₽</th>
+            <th>Дата</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for order in data.orders %}
+          <tr>
+            <td data-label="№">#{{ order.order_number }}</td>
+            <td data-label="Город">{{ order.city_rel.name if order.city_rel else '—' }}</td>
+            <td data-label="Адрес">{{ order.street or '—' }}{% if order.house %}, д. {{ order.house }}{% endif %}{% if order.flat %}, кв. {{ order.flat }}{% endif %}</td>
+            <td data-label="Техника">{{ get_equip_type_name(order.equip_type) }}</td>
+            <td data-label="Статус"><span class="badge badge-warning">{{ get_status_name_ru(order.status) }}</span></td>
+            <td data-label="СД, ₽">{{ '%.2f'|format(order.sd_price or 0) }}</td>
+            <td data-label="ЗПЧ, ₽">{{ '%.2f'|format(order.zpch_sum or 0) }}</td>
+            <td data-label="Дата">{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else '—' }}</td>
+            <td data-label=""><a href="/admin/orders/{{ order.id }}" class="btn btn-sm btn-secondary">Открыть</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card card-flat"><div class="empty-state">У мастеров нет незакрытых СД</div></div>
+{% endif %}
 {% endblock %}

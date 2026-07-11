@@ -75,6 +75,15 @@ def status_label(value) -> str:
 
 templates.env.globals["status_label"] = status_label
 
+# Хелперы для меток заказов (используются, например, на странице СД).
+from promouters.utils.order_helpers import (  # noqa: E402
+    get_equip_type_name,
+    get_status_name_ru,
+)
+
+templates.env.globals["get_status_name_ru"] = get_status_name_ru
+templates.env.globals["get_equip_type_name"] = get_equip_type_name
+
 
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
