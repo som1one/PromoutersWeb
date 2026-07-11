@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block page_title %}Расходы филиала — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Расходы филиала</h1>
+    <p class="page-subtitle">{% if expenses %}Всего: {{ expenses|length }}{% else %}Расходов пока нет{% endif %}</p>
+  </div>
+  {% if can_create %}
+  <div class="page-actions">
+    <a href="/admin/branch-expenses/new" class="btn">➕ Добавить расход</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card card-flat">
+  <div class="table-wrap">
+    <table class="data-table data-table-stack">
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Тема</th>
+          <th>Сумма</th>
+          <th>Чек / комментарий</th>
+          <th>Кто создал</th>
+          {% if can_manage %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for e in expenses %}
+        <tr>
+          <td data-label="Дата">{{ e.created_at.strftime('%d.%m.%Y') }}</td>
+          <td data-label="Тема"><b>{{ e.topic }}</b></td>
+          <td data-label="Сумма">{{ '%.2f'|format(e.amount) }} ₽</td>
+          <td data-label="Чек / комментарий">
+            {% if e.receipt_path %}
+              <a href="{{ media_url }}/{{ e.receipt_path }}" target="_blank" rel="noopener">📎 Чек</a>
+            {% elif e.no_receipt %}
+              <span class="muted">Без чека</span>{% if e.comment %} — {{ e.comment }}{% endif %}
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td data-label="Кто создал">{{ e.created_by.first_name }} {{ e.created_by.last_name }}</td>
+          {% if can_manage %}
+          <td data-label="">
+            <a href="/admin/branch-expenses/{{ e.id }}/edit" class="btn btn-sm btn-secondary">Изменить</a>
+            <form method="post" action="/admin/branch-expenses/{{ e.id }}/delete" style="display:inline;" onsubmit="return confirm('Удалить расход?');">
+              <button type="submit" class="btn btn-sm btn-danger">Удалить</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+      {% else %}
+        <tr><td colspan="{% if can_manage %}6{% else %}5{% endif %}" class="empty-state">Расходов нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

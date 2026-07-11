@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -83,6 +83,30 @@ class Payout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     paid_by: Mapped["User | None"] = relationship(
         foreign_keys=[paid_by_id],
     )
+
+
+class BranchExpense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Простой расход филиала: тема + сумма + чек (или «без чека» с комментарием).
+
+    Отдельная лёгкая сущность, не связанная с ExpensePlan (планы расходов).
+    """
+    __tablename__ = "branch_expenses"
+
+    branch_id: Mapped[str] = mapped_column(
+        ForeignKey("branches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_by_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    topic: Mapped[str] = mapped_column(String(255), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="RUB", nullable=False)
+    receipt_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    no_receipt: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    branch: Mapped["Branch"] = relationship("Branch", foreign_keys=[branch_id])
+    created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id])
 
 
 class PromoterPaymentDetails(UUIDPrimaryKeyMixin, TimestampMixin, Base):

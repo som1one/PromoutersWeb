@@ -1,5 +1,12 @@
 from promouters.models.auth import LoginSMSCode
-from promouters.models.finance import ExpenseApproval, ExpensePlan, ExpensePlanItem, Payout, PayoutRate
+from promouters.models.finance import (
+    BranchExpense,
+    ExpenseApproval,
+    ExpensePlan,
+    ExpensePlanItem,
+    Payout,
+    PayoutRate,
+)
 from promouters.models.operations import (
     AuditLog,
     BSOAttachment,
@@ -26,6 +33,7 @@ __all__ = [
     "AuditLog",
     "BSOAttachment",
     "Branch",
+    "BranchExpense",
     "City",
     "EquipmentType",
     "ExpenseApproval",

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block page_title %}{% if edit %}Изменить расход{% else %}Новый расход{% endif %} — СУУПР{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{% if edit %}Изменить расход{% else %}Новый расход{% endif %}</h1>
+    <p class="page-subtitle">Тема, сумма и чек — или отметьте «без чека» и укажите комментарий</p>
+  </div>
+  <div class="page-actions">
+    <a href="/admin/branch-expenses" class="btn btn-ghost">← К списку</a>
+  </div>
+</div>
+
+<form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="card">
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Тема расхода</label>
+      <input type="text" name="topic" value="{{ form.topic or '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Сумма, ₽</label>
+      <input type="number" step="0.01" min="0" name="amount" value="{{ form.amount or '' }}" required>
+    </div>
+  </div>
+
+  {% if must_pick_branch %}
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Филиал</label>
+      <select name="branch_id" required>
+        <option value="">— выберите филиал —</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}" {% if form.branch_id and form.branch_id|string == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-group">
+    <label class="form-label">Прикрепить чек</label>
+    <input type="file" name="receipt" accept="image/*,.pdf">
+    {% if edit and form.has_receipt %}<small class="muted">Чек уже загружен. Новый файл заменит текущий.</small>{% endif %}
+  </div>
+
+  <div class="form-group">
+    <label style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" name="no_receipt" id="no_receipt" {% if form.no_receipt %}checked{% endif %}>
+      Провести без чека (с комментарием)
+    </label>
+  </div>
+
+  <div class="form-group" id="comment_block" style="{% if not form.no_receipt %}display:none;{% endif %}">
+    <label class="form-label">Комментарий</label>
+    <textarea name="comment" rows="2">{{ form.comment or '' }}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">{% if edit %}Сохранить{% else %}Создать расход{% endif %}</button>
+    <a href="/admin/branch-expenses" class="btn btn-ghost">Отмена</a>
+  </div>
+</form>
+
+<script>
+  (function () {
+    var cb = document.getElementById('no_receipt');
+    var block = document.getElementById('comment_block');
+    var ta = block ? block.querySelector('textarea') : null;
+    function sync() {
+      if (!block) return;
+      block.style.display = cb.checked ? '' : 'none';
+      if (ta) { ta.required = cb.checked; }
+    }
+    if (cb) { cb.addEventListener('change', sync); sync(); }
+  })();
+</script>
+{% endblock %}

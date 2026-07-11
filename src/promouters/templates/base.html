@@ -97,6 +97,14 @@
       </div>
       {% endif %}
 
+      {# Branch expenses — owner (full) / branch_manager (view) / ad_director (create) #}
+      {% if role in ['owner','branch_manager','ad_director'] %}
+      <div class="nav-group">
+        <div class="nav-group-title">Финансы</div>
+        <a href="/admin/branch-expenses" class="nav-link {% if active_page == 'branch_expenses' %}active{% endif %}">🧾 Расходы филиала</a>
+      </div>
+      {% endif %}
+
       {# Master requests — visible to master, branch_manager, owner, dispatcher #}
       {% if role in ['owner','branch_manager','master','dispatcher','director'] %}
       <div class="nav-group">

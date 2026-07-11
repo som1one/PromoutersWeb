@@ -13,6 +13,7 @@ from promouters.web.deps import WebAuthException, WebForbiddenException, render
 from promouters.web import (
     audit as audit_router,
     auth as auth_router,
+    branch_expenses as branch_expenses_router,
     branches as branches_router,
     cash as cash_router,
     cities as cities_router,
@@ -46,6 +47,7 @@ web_router.include_router(promoters_router.router, prefix="/promoters")
 web_router.include_router(cities_router.router, prefix="/cities")
 web_router.include_router(company_router.router, prefix="/company")
 web_router.include_router(branches_router.router, prefix="/branches")
+web_router.include_router(branch_expenses_router.router, prefix="/branch-expenses")
 web_router.include_router(cash_router.router, prefix="/cash")
 web_router.include_router(sd_router.router, prefix="/sd")
 web_router.include_router(stats_router.router, prefix="/stats")
