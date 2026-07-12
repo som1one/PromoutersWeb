@@ -24,7 +24,11 @@ from promouters.web.deps import render, require_roles
 router = APIRouter()
 
 
-ORDER_ROLES = ("owner", "director", "dispatcher", "branch_manager", "ad_director")
+# Просмотр заявок. ad_director видит их ТОЛЬКО на чтение (без создания/
+# редактирования и без телефонов) — поэтому у него отдельный набор ролей.
+ORDER_VIEW_ROLES = ("owner", "director", "dispatcher", "branch_manager", "ad_director")
+# Создание/редактирование/поиск заявок — без ad_director.
+ORDER_ROLES = ("owner", "director", "dispatcher", "branch_manager")
 
 
 def _safe_int(value: str | int | None) -> int | None:
@@ -237,7 +241,7 @@ async def orders_list(
     date_to: str | None = None,
     period: str | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles(*ORDER_ROLES)),
+    user: User = Depends(require_roles(*ORDER_VIEW_ROLES)),
 ):
     resolved_city_id = _safe_int(city_id)
     resolved_master_id = _safe_int(master_id)
@@ -264,6 +268,7 @@ async def orders_list(
 
     role = user.role.code if user.role else None
     can_close = role in ("owner", "branch_manager", "dispatcher")
+    show_phones = role != "ad_director"
 
     return render(
         request,
@@ -273,6 +278,7 @@ async def orders_list(
         orders=decorated,
         total=len(decorated),
         can_close=can_close,
+        show_phones=show_phones,
         filter={
             "status": status or "",
             "city_id": resolved_city_id,
@@ -407,7 +413,7 @@ async def order_detail(
     request: Request,
     order_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_roles(*ORDER_ROLES)),
+    user: User = Depends(require_roles(*ORDER_VIEW_ROLES)),
 ):
     order = orders_svc.get_order(db, order_id)
     if not order:
@@ -446,6 +452,7 @@ async def order_detail(
         else:
             flash_success = "Заявка обновлена."
 
+    role = user.role.code if user.role else None
     return render(
         request,
         "order_view.html",
@@ -456,6 +463,8 @@ async def order_detail(
         masters=orders_svc.list_masters_for_assignment(db),
         available_statuses=[{"code": code, "name": name} for code, name in STATUS_NAMES_RU.items()],
         flash_success=flash_success,
+        can_edit=role in ("owner", "director", "dispatcher", "branch_manager"),
+        show_phones=role != "ad_director",
     )
 
 

@@ -10,7 +10,7 @@
     {% if user.role.code in ['owner','director','dispatcher'] %}
     <a href="/admin/orders/create" class="btn">➕ Новая заявка</a>
     {% endif %}
-    <a href="/admin/orders/search" class="btn btn-secondary">Поиск</a>
+    {% if show_phones %}<a href="/admin/orders/search" class="btn btn-secondary">Поиск</a>{% endif %}
     {% if user.role.code in ['owner','director'] %}
     <a href="/admin/export/orders?format=xlsx&days=30" class="btn btn-ghost">Экспорт</a>
     {% endif %}

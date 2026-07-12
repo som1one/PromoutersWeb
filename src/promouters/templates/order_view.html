@@ -8,7 +8,7 @@
   </div>
   <div class="page-actions">
     <a href="/admin/orders" class="btn btn-ghost">← К списку</a>
-    {% if user.role.code in ['owner','director','dispatcher','branch_manager','ad_director'] %}
+    {% if can_edit %}
     <a href="/admin/orders/{{ order.id }}/edit" class="btn">✎ Редактировать</a>
     {% if order.status != 'declined' %}
     <a href="/admin/orders/{{ order.id }}/close" class="btn btn-primary">Закрыть</a>
@@ -71,7 +71,7 @@
   </div>
   <div class="form-row">
     <div class="col"><span class="muted">Имя</span><span>{{ order.client_name or '—' }}</span></div>
-    <div class="col"><span class="muted">Телефон</span><span>{{ order.client_phone or '—' }}</span></div>
+    <div class="col"><span class="muted">Телефон</span><span>{% if show_phones %}{{ order.client_phone or '—' }}{% else %}<span class="muted">скрыт</span>{% endif %}</span></div>
     <div class="col"><span class="muted">Источник</span><span>{{ order.source or '—' }}</span></div>
     <div class="col"><span class="muted">Мастер</span><span>{{ order.assignee_name or '—' }}</span></div>
   </div>
@@ -89,6 +89,7 @@
   </div>
 </div>
 
+{% if can_edit %}
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Быстрое обновление</h3>
@@ -130,6 +131,7 @@
     </div>
   </form>
 </div>
+{% endif %}
 
 {% if order.receipt_file_path or order.bso_file_path %}
 <div class="card">

@@ -39,8 +39,8 @@
         <a href="/admin/" class="nav-link {% if active_page == 'home' %}active{% endif %}">🏠 Главная</a>
       </div>
 
-      {# Service orders area — owner / director / dispatcher / branch_manager #}
-      {% if role in ['owner','director','dispatcher','branch_manager'] %}
+      {# Service orders area — owner / director / dispatcher / branch_manager (+ ad_director: только просмотр «Заявки») #}
+      {% if role in ['owner','director','dispatcher','branch_manager','ad_director'] %}
       <div class="nav-group">
         <div class="nav-group-title">Заявки</div>
         {% if role in ['owner','dispatcher','branch_manager'] %}

@@ -229,6 +229,47 @@ def test_ad_director_cannot_open_user_edit(client, db_session, seed_roles, seed_
 
 # --- Issue B: дублирующийся VK ID = понятная ошибка, не 500 -------------------
 
+def test_ad_director_views_orders_read_only_without_phones(client, db_session, seed_roles, seed_branch):
+    ad = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.AD_DIRECTOR, username="ad_orders")
+    order = Order(order_number=9500, status="new", street="Ленина", client_name="Иван", client_phone="+79990001122")
+    db_session.add(order)
+    db_session.commit()
+    db_session.refresh(order)
+    _login(client, ad)
+
+    # список и карточка доступны
+    assert client.get("/admin/orders").status_code == 200
+    detail = client.get(f"/admin/orders/{order.id}")
+    assert detail.status_code == 200
+    # телефон скрыт, кнопок редактирования нет
+    assert "+79990001122" not in detail.text
+    assert "Редактировать" not in detail.text
+    assert "Быстрое обновление" not in detail.text
+    # формы создания/редактирования недоступны
+    assert "Доступ запрещён" in client.get(f"/admin/orders/{order.id}/edit").text
+    assert "Доступ запрещён" in client.get("/admin/orders/create").text
+
+
+def test_ad_director_cannot_update_order(client, db_session, seed_roles, seed_branch):
+    ad = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.AD_DIRECTOR, username="ad_orders2")
+    master = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.MASTER, username="m_ord", tg_id=556001)
+    order = Order(order_number=9501, status="new", street="Мира")
+    db_session.add(order)
+    db_session.commit()
+    db_session.refresh(order)
+    _login(client, ad)
+
+    resp = client.post(
+        f"/admin/orders/{order.id}/update",
+        data={"status": "assigned", "assigned_to": str(master.tg_id)},
+        follow_redirects=False,
+    )
+    assert "Доступ запрещён" in resp.text
+    db_session.refresh(order)
+    assert order.status == "new"
+    assert order.assigned_to is None
+
+
 def test_user_update_duplicate_vk_id_is_friendly(client, db_session, seed_roles, seed_branch):
     owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_b1")
     m1 = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.MASTER, username="master_b1", tg_id=880001)
