@@ -40,10 +40,12 @@ def list_orders(
         stmt = stmt.where(Order.city_id == city_id)
     if assigned_to:
         stmt = stmt.where(Order.assigned_to == assigned_to)
+    # Фильтруем по дате заявки (order_date — то, что видно в колонке «Дата»),
+    # с откатом на created_at, если order_date не задан.
     if date_from:
-        stmt = stmt.where(Order.created_at >= date_from)
+        stmt = stmt.where(func.coalesce(Order.order_date, Order.created_at) >= date_from)
     if date_to:
-        stmt = stmt.where(Order.created_at <= date_to)
+        stmt = stmt.where(func.coalesce(Order.order_date, Order.created_at) <= date_to)
     if search:
         like = f"%{search}%"
         stmt = stmt.where(
