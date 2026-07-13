@@ -295,3 +295,52 @@ def test_user_update_duplicate_vk_id_is_friendly(client, db_session, seed_roles,
     assert "VK ID" in resp.text
     db_session.refresh(m2)
     assert m2.tg_id == 880002  # unchanged
+
+
+def test_promoter_can_be_recreated_after_archive(client, db_session, seed_roles, seed_branch):
+    owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_readd")
+    _login(client, owner)
+
+    # создаём промоутера с VK ID через новую форму (owner выбирает филиал)
+    r1 = client.post(
+        "/admin/promoters/new",
+        data={"first_name": "Пётр", "last_name": "Пром", "tg_id": "991001", "branch_id": str(seed_branch.id)},
+        follow_redirects=False,
+    )
+    assert r1.status_code == 302
+    created = db_session.scalar(select(User).where(User.tg_id == 991001))
+    assert created is not None and created.vk_id == "991001"
+
+    # архивируем (удаление)
+    rd = client.post(f"/admin/promoters/{created.id}/delete", follow_redirects=False)
+    assert rd.headers["location"] == "/admin/promoters?deleted=1"
+    db_session.expire_all()
+
+    # повторно создаём с ТЕМ ЖЕ VK ID — должно работать (vk_id освобождён при архивации)
+    r2 = client.post(
+        "/admin/promoters/new",
+        data={"first_name": "Пётр", "last_name": "Пром", "tg_id": "991001", "branch_id": str(seed_branch.id)},
+        follow_redirects=False,
+    )
+    assert r2.status_code == 302
+    active = db_session.scalar(
+        select(User).where(User.tg_id == 991001, User.status == UserStatus.ACTIVE)
+    )
+    assert active is not None
+
+
+def test_orders_filter_by_order_date(client, db_session, seed_roles, seed_branch):
+    from datetime import datetime
+
+    owner = _make_user(db_session, seed_roles, seed_branch, role_code=RoleCode.OWNER, username="owner_datefilter")
+    db_session.add_all([
+        Order(order_number=9600, status="new", street="InRangeStreet", order_date=datetime(2026, 7, 10, 12, 0)),
+        Order(order_number=9601, status="new", street="OutRangeStreet", order_date=datetime(2026, 6, 1, 12, 0)),
+    ])
+    db_session.commit()
+    _login(client, owner)
+
+    resp = client.get("/admin/orders?date_from=2026-07-07&date_to=2026-07-13")
+    assert resp.status_code == 200
+    assert "InRangeStreet" in resp.text
+    assert "OutRangeStreet" not in resp.text
