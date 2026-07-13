@@ -458,6 +458,9 @@ def _archive_identity_fields(user: User) -> None:
     user.email = f"archived+{suffix}@promouters.local"
     user.phone = None
     user.tg_id = None
+    # vk_id тоже уникален — освобождаем его при архивации, иначе повторное
+    # создание промоутера с тем же VK ID упрётся в uq_users_vk_id.
+    user.vk_id = None
 
 
 def archive_user(

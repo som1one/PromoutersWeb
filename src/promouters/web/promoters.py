@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import logging
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -22,6 +23,7 @@ from promouters.web.deps import render, require_roles
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Создавать промоутеров может владелец, руководитель филиала и директор по рекламе.
 # Директор по рекламе — ТОЛЬКО создавать (редактирование/удаление ему недоступны).
@@ -190,6 +192,7 @@ async def promoter_create_submit(
     try:
         users_svc.create_user(db, user, payload, request=request)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("promoter.create failed")
         db.rollback()
         raw = str(getattr(exc, "detail", None) or exc)
         low = raw.lower()
@@ -263,5 +266,7 @@ async def promoter_delete(
     try:
         users_svc.archive_user(db, user, promoter, request=request, action="promoter.archive")
     except Exception:  # noqa: BLE001
+        logger.exception("promoter.archive failed")
+        db.rollback()
         return RedirectResponse("/admin/promoters?error=delete-failed", status_code=302)
     return RedirectResponse("/admin/promoters?deleted=1", status_code=302)
